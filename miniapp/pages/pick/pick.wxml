@@ -1,0 +1,27 @@
+<view class="container">
+  <view class="header">
+    <view class="title">{{dateStr}} 比赛日</view>
+    <view class="subtitle">选择球员 - {{modeName}}</view>
+  </view>
+
+  <scroll-view scroll-y class="player-list">
+    <block wx:for="{{players}}" wx:key="player_id">
+      <view class="player-card" bindtap="handleSelect" data-player="{{item}}">
+        <view class="rank">{{index + 1}}</view>
+        <view class="info">
+          <view class="name-row">
+            <text class="name">{{item.player_name}}</text>
+            <text class="avg">{{item.season_avg}}</text>
+          </view>
+          <view class="match-info">
+            {{item.team_name}} | vs {{item.home_team_name === item.team_name ? item.visitor_team_name : item.home_team_name}}
+          </view>
+        </view>
+        <view class="action-btn">选择</view>
+      </view>
+    </block>
+    <view wx:if="{{players.length === 0}}" class="empty">暂无球员数据</view>
+  </scroll-view>
+</view>
+
+

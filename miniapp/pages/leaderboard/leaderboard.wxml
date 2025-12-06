@@ -1,0 +1,59 @@
+<view class="page-container">
+  <!-- Header -->
+  <view class="header">
+    <view class="header-title">🏆 排行榜</view>
+    <view class="header-subtitle">实时查看所有玩家得分</view>
+  </view>
+
+  <!-- Loading -->
+  <view class="loading-container" wx:if="{{loading}}">
+    <view class="loading-spinner"></view>
+    <text>加载中...</text>
+  </view>
+
+  <!-- Leaderboard List -->
+  <view class="leaderboard-list" wx:if="{{!loading}}">
+    <block wx:if="{{leaderboard.length > 0}}">
+      <view 
+        class="rank-card {{item.id === currentUserId ? 'is-me' : ''}} {{item.rank <= 3 ? 'top-three' : ''}}"
+        wx:for="{{leaderboard}}" 
+        wx:key="id"
+      >
+        <!-- Rank Badge -->
+        <view class="rank-badge rank-{{item.rank <= 3 ? item.rank : 'normal'}}">
+          <text wx:if="{{item.rank === 1}}">🥇</text>
+          <text wx:elif="{{item.rank === 2}}">🥈</text>
+          <text wx:elif="{{item.rank === 3}}">🥉</text>
+          <text wx:else>{{item.rank}}</text>
+        </view>
+
+        <!-- User Info -->
+        <view class="user-info">
+          <image 
+            class="user-avatar" 
+            src="{{item.avatarUrl || 'https://img.yzcdn.cn/vant/cat.jpeg'}}" 
+            mode="aspectFill"
+          ></image>
+          <view class="user-detail">
+            <view class="user-name">
+              {{item.nickname || '球迷'}}
+              <text class="me-tag" wx:if="{{item.id === currentUserId}}">我</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- Score -->
+        <view class="score-section">
+          <text class="score-value">{{item.totalScore || 0}}</text>
+          <text class="score-label">分</text>
+        </view>
+      </view>
+    </block>
+
+    <!-- Empty State -->
+    <view class="empty-state" wx:if="{{leaderboard.length === 0}}">
+      <text class="empty-icon">📊</text>
+      <text class="empty-text">暂无玩家数据</text>
+    </view>
+  </view>
+</view>

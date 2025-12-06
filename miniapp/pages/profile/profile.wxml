@@ -1,0 +1,67 @@
+<view class="page-container">
+  <!-- User Info Card -->
+  <view class="user-card">
+    <view class="user-header">
+      <view class="avatar-wrapper" bindtap="chooseAvatar">
+        <image class="avatar" src="{{user.avatarUrl || 'https://img.yzcdn.cn/vant/cat.jpeg'}}" mode="aspectFill"></image>
+        <view class="avatar-edit-hint">点击修改</view>
+      </view>
+      <view class="user-meta">
+        <view class="username-row" bindtap="editNickname">
+          <text class="username">{{user.nickname || '球迷'}}</text>
+          <text class="edit-icon">✏️</text>
+        </view>
+        <view class="user-group">
+          <text class="group-icon">🏆</text>
+          <text>{{user.groupName || '默认小组'}}</text>
+        </view>
+      </view>
+    </view>
+    
+    <view class="stats-row">
+      <view class="stat-item">
+        <view class="stat-label">当前积分</view>
+        <view class="stat-value">{{user.totalScore || 0}}</view>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-item">
+        <view class="stat-label">排名</view>
+        <view class="stat-value">{{userRank || '--'}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Menu List -->
+  <view class="menu-list">
+    <view class="menu-item" data-url="/pages/history/history" bindtap="navigate">
+      <view class="menu-icon" style="background: #EFF6FF; color: #3B82F6;">📅</view>
+      <view class="menu-text">历史战绩</view>
+      <view class="menu-arrow">></view>
+    </view>
+    <view class="menu-item" data-url="/pages/leaderboard/leaderboard" bindtap="navigate">
+      <view class="menu-icon" style="background: #FEF3C7; color: #F59E0B;">📊</view>
+      <view class="menu-text">排行榜</view>
+      <view class="menu-arrow">></view>
+    </view>
+  </view>
+
+  <!-- Frozen Players Section -->
+  <view class="section-title">我的冷冻名单</view>
+  <view class="frozen-list">
+    <block wx:if="{{frozen.length}}">
+      <block wx:for="{{frozen}}" wx:key="id">
+        <view class="frozen-card">
+          <view class="frozen-info">
+            <view class="frozen-name">{{item.player_name}}</view>
+            <view class="frozen-date">解冻: {{item.expires_at}}</view>
+          </view>
+          <view class="frozen-status">❄️</view>
+        </view>
+      </block>
+    </block>
+    <view class="empty-frozen" wx:if="{{!frozen.length}}">
+      <view class="empty-text">暂无冷冻球员</view>
+    </view>
+  </view>
+
+</view>

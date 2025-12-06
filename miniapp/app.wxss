@@ -1,0 +1,94 @@
+/** app.wxss */
+page {
+  background-color: #F9FAFB; /* Gray 50 */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --primary-color: #3B82F6; /* Blue 500 */
+  --text-main: #1F2937; /* Gray 800 */
+  --text-secondary: #6B7280; /* Gray 500 */
+  --bg-card: #FFFFFF;
+  --border-color: #E5E7EB; /* Gray 200 */
+  
+  /* Add padding for custom tab bar */
+  padding-bottom: 100px;
+}
+
+.container {
+  padding: 24rpx;
+}
+
+/* Card Style */
+.card {
+  background: var(--bg-card);
+  border-radius: 24rpx;
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Typography */
+.title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 16rpx;
+}
+
+.subtitle {
+  font-size: 28rpx;
+  color: var(--text-secondary);
+}
+
+/* Buttons */
+button[type="primary"] {
+  background-color: var(--primary-color) !important;
+  border-radius: 16rpx;
+  font-weight: 600;
+}
+
+button[size="mini"] {
+  margin: 0 8rpx;
+  font-size: 24rpx;
+  border-radius: 12rpx;
+}
+
+/* Utilities */
+.flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.mt-4 { margin-top: 32rpx; }
+.mb-4 { margin-bottom: 32rpx; }
+
+/* Picker Styles */
+.date-picker-row {
+  display: flex;
+  align-items: center;
+  background: #FFFFFF;
+  padding: 8rpx 16rpx;
+  border-radius: 12rpx;
+  border: 1px solid #E5E7EB;
+}
+
+.date-value {
+  font-size: 36rpx;
+  font-weight: 800;
+  color: #1F2937;
+  margin-right: 8rpx;
+}
+
+.picker-icon {
+  font-size: 20rpx;
+  color: #9CA3AF;
+}

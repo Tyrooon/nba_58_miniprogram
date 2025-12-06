@@ -1,0 +1,24 @@
+<view class="page">
+  <view class="card" wx:for="{{records}}" wx:key="id">
+    <view class="row">
+      <text class="mode">{{modeMap[item.play_mode]}}</text>
+      <text class="score">{{item.total_score || '--'}} 分</text>
+    </view>
+    <view class="player">{{item.player_name}}</view>
+    <view class="meta">
+      日期 {{item.game_date}} · 得分 {{item.player_actual_score || '--'}} · 均分 {{item.player_season_avg || '--'}}
+    </view>
+  </view>
+  <view class="empty" wx:if="{{!records.length && !loading}}">
+    暂无选择记录
+  </view>
+</view>
+
+
+
+
+
+
+
+
+

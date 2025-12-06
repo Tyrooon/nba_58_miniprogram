@@ -1,0 +1,43 @@
+.page {
+  padding: 32rpx;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12rpx;
+}
+
+.mode {
+  font-weight: 600;
+}
+
+.score {
+  color: #fbbf24;
+}
+
+.player {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.meta {
+  margin-top: 8rpx;
+  opacity: 0.7;
+  font-size: 24rpx;
+}
+
+.empty {
+  text-align: center;
+  opacity: 0.6;
+  margin-top: 200rpx;
+}
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+server/data/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+test_*.js
+test_*.ts
+
+# Temporary files
+*.tmp
+*.temp
+boxscore.json
+
+# WeChat Mini Program
+miniapp/project.private.config.json
+

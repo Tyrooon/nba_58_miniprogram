@@ -1,0 +1,84 @@
+<view class="tab-bar">
+  <view class="tab-bar-border"></view>
+  
+  <!-- Schedule Tab -->
+  <view class="tab-bar-item" data-path="/pages/index/index" data-index="0" bindtap="switchTab">
+    <image class="icon" src="{{selected === 0 ? '/images/schedule-active.png' : '/images/schedule.png'}}" wx:if="{{false}}"></image> 
+    <!-- Using CSS shapes/text icons for now since I can't upload images -->
+    <view class="iconfont {{selected === 0 ? 'active' : ''}}">📅</view>
+    <view class="text {{selected === 0 ? 'active' : ''}}">赛程</view>
+  </view>
+
+  <!-- NBA 58 Button -->
+  <view class="tab-bar-item center-item" bindtap="showGameModes">
+    <view class="nba-btn">
+      <image class="nba-icon" src="/images/nba58.png" mode="aspectFit"></image>
+    </view>
+    <view class="selection-hint">
+      <text class="selection-date">{{selectedDateLabel || '选择比赛日'}}</text>
+      <text class="selection-text">{{currentSelectionText}}</text>
+      <text class="locked-mark" wx:if="{{!canModifySelection}}">已锁定</text>
+    </view>
+  </view>
+
+  <!-- Profile Tab -->
+  <view class="tab-bar-item" data-path="/pages/profile/profile" data-index="1" bindtap="switchTab">
+    <image class="icon" src="{{selected === 1 ? '/images/profile-active.png' : '/images/profile.png'}}" wx:if="{{false}}"></image>
+    <view class="iconfont {{selected === 1 ? 'active' : ''}}">👤</view>
+    <view class="text {{selected === 1 ? 'active' : ''}}">我的</view>
+  </view>
+</view>
+
+<view class="action-sheet-mask" wx:if="{{showModes}}" bindtap="hideModes"></view>
+<view class="action-sheet" wx:if="{{showModes}}">
+  <view class="action-sheet-title">选择游戏模式</view>
+  <view class="date-picker">
+    <view class="date-picker-title">选择比赛日</view>
+    <view class="date-tag-list">
+      <block wx:if="{{dateOptions.length}}">
+        <block wx:for="{{dateOptions}}" wx:key="date">
+          <view class="date-tag {{selectedDate === item.date ? 'active' : ''}}" data-date="{{item.date}}" bindtap="selectDate">
+            {{item.label}}
+          </view>
+        </block>
+      </block>
+      <view wx:else class="date-empty">暂无可选比赛日</view>
+    </view>
+  </view>
+  <view class="mode-item" bindtap="selectMode" data-mode="regular">
+    <view class="mode-icon">🏀</view>
+    <view class="mode-info">
+      <view class="mode-name">常规模式</view>
+      <view class="mode-desc">
+        <text>标准玩法</text>
+        <text class="mode-desc-selection">{{currentSelectionRegular ? ('已选：' + currentSelectionRegular.player_name) : '未选择'}}</text>
+      </view>
+    </view>
+  </view>
+  <view class="mode-item" bindtap="selectMode" data-mode="plus58">
+    <view class="mode-icon">📈</view>
+    <view class="mode-info">
+      <view class="mode-name">正58</view>
+      <view class="mode-desc">
+        <text>挑战最高分</text>
+        <text class="mode-desc-selection">{{currentSelectionPlus58 ? ('已选：' + currentSelectionPlus58.player_name) : '未选择'}}</text>
+      </view>
+    </view>
+  </view>
+  <view class="mode-item" bindtap="selectMode" data-mode="minus58">
+    <view class="mode-icon">📉</view>
+    <view class="mode-info">
+      <view class="mode-name">负58</view>
+      <view class="mode-desc">
+        <text>挑战最低分</text>
+        <text class="mode-desc-selection">{{currentSelectionMinus58 ? ('已选：' + currentSelectionMinus58.player_name) : '未选择'}}</text>
+      </view>
+    </view>
+  </view>
+  <view class="lock-tip" wx:if="{{!canModifySelection}}">
+    今日第一场比赛已锁定，如需修改请等待下一比赛日
+  </view>
+  <view class="cancel-btn" bindtap="hideModes">取消</view>
+</view>
+
+
