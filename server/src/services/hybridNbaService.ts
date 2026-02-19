@@ -399,7 +399,7 @@ export async function getBBRAllPlayerStats(): Promise<BBRPlayer[]> {
     return playerStatsCache.data;
   }
 
-  const seasonYear = 2026; // 2025-26赛季
+  const seasonYear = config.currentSeason + 1;
   const url = `${BBR_BASE}/leagues/NBA_${seasonYear}_per_game.html`;
   console.log(`Fetching BBR player stats from ${url}...`);
   

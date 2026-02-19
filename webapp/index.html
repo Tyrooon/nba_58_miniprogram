@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NBA 58 竞猜</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏀</text></svg>">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-top">
+        <div class="season-selector">
+          <select id="seasonSelect" class="season-picker">
+            <option value="2025-2026">2025-2026</option>
+            <option value="2024-2025">2024-2025</option>
+            <option value="2023-2024">2023-2024</option>
+          </select>
+        </div>
+        <div class="actions">
+          <button class="mode-badge" id="syncScheduleBtn">更新赛程</button>
+          <button class="mode-badge" id="scrollToTodayBtn">回到今天</button>
+        </div>
+      </div>
+
+      <div class="mode-status-card">
+        <div class="mode-row">
+          <span class="mode-label">当前玩法</span>
+          <span class="mode-value" id="currentModeName">常规模式</span>
+        </div>
+        <div class="mode-row">
+          <span class="mode-label">已选球员</span>
+          <span class="mode-value" id="currentSelectionName">未选择</span>
+        </div>
+        <div class="mode-row" id="lockTimeRow" style="display: none;">
+          <span class="mode-label">锁定时间</span>
+          <span class="mode-value" id="selectionLockTime"></span>
+          <span class="mode-lock" id="lockStatus"></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Timeline Scroll -->
+    <main class="timeline-scroll" id="timelineScroll">
+      <div class="timeline-content" id="timelineContent">
+        <!-- Loading -->
+        <div class="loading-container" id="loadingContainer">
+          <div class="spinner"></div>
+          <p>加载中...</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- Floating Refresh Button -->
+    <button class="floating-refresh" id="refreshScoresBtn">↻</button>
+
+    <!-- Tab Bar -->
+    <nav class="tab-bar">
+      <div class="tab-bar-item" data-page="schedule" data-index="0">
+        <span class="iconfont">📅</span>
+        <span class="text active">赛程</span>
+      </div>
+
+      <div class="tab-bar-item center-item" id="openModePanel">
+        <div class="nba-btn">🏀</div>
+        <div class="selection-hint">
+          <span class="selection-date" id="selectedDateLabel">选择比赛日</span>
+          <span class="selection-text" id="tabSelectionText">未选择</span>
+        </div>
+      </div>
+
+      <div class="tab-bar-item" data-page="profile" data-index="1">
+        <span class="iconfont">👤</span>
+        <span class="text">我的</span>
+      </div>
+    </nav>
+
+    <!-- Mode Selection Panel -->
+    <div class="action-sheet-mask" id="modeSheetMask"></div>
+    <div class="action-sheet" id="modeSheet">
+      <div class="action-sheet-title">选择游戏模式</div>
+      
+      <div class="date-picker">
+        <div class="date-picker-title">选择比赛日</div>
+        <div class="date-tag-list" id="dateTagList">
+          <!-- Dates will be populated here -->
+        </div>
+      </div>
+
+      <div class="mode-item" data-mode="regular">
+        <div class="mode-icon">🏀</div>
+        <div class="mode-info">
+          <div class="mode-name">常规模式</div>
+          <div class="mode-desc">
+            <span>标准玩法</span>
+            <span class="mode-desc-selection" id="regularSelection">未选择</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mode-item" data-mode="plus58">
+        <div class="mode-icon">📈</div>
+        <div class="mode-info">
+          <div class="mode-name">正58</div>
+          <div class="mode-desc">
+            <span>挑战最高分</span>
+            <span class="mode-desc-selection" id="plus58Selection">未选择</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mode-item" data-mode="minus58">
+        <div class="mode-icon">📉</div>
+        <div class="mode-info">
+          <div class="mode-name">负58</div>
+          <div class="mode-desc">
+            <span>挑战最低分</span>
+            <span class="mode-desc-selection" id="minus58Selection">未选择</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="lock-tip" id="lockTip" style="display: none;">
+        今日第一场比赛已锁定，如需修改请等待下一比赛日
+      </div>
+
+      <button class="cancel-btn" id="closeModePanel">取消</button>
+    </div>
+
+    <!-- Profile Page (Hidden by default) -->
+    <div class="page-container profile-page" id="profilePage" style="display: none;">
+      <div class="user-card">
+        <div class="user-header">
+          <div class="avatar-wrapper" id="avatarWrapper">
+            <img class="avatar" id="userAvatar" src="https://img.yzcdn.cn/vant/cat.jpeg" alt="avatar">
+            <div class="avatar-edit-hint">点击修改</div>
+          </div>
+          <div class="user-meta">
+            <div class="username-row" id="editNickname">
+              <span class="username" id="userNickname">球迷</span>
+              <span class="edit-icon">✏️</span>
+            </div>
+            <div class="user-group">
+              <span class="group-icon">🏆</span>
+              <span id="userGroupName">默认小组</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="stats-row">
+          <div class="stat-item">
+            <div class="stat-label">当前积分</div>
+            <div class="stat-value" id="userTotalScore">0</div>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <div class="stat-label">排名</div>
+            <div class="stat-value" id="userRank">--</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="menu-list">
+        <div class="menu-item" id="historyMenuItem">
+          <div class="menu-icon" style="background: #EFF6FF; color: #3B82F6;">📅</div>
+          <div class="menu-text">历史战绩</div>
+          <div class="menu-arrow">></div>
+        </div>
+        <div class="menu-item" id="leaderboardMenuItem">
+          <div class="menu-icon" style="background: #FEF3C7; color: #F59E0B;">📊</div>
+          <div class="menu-text">排行榜</div>
+          <div class="menu-arrow">></div>
+        </div>
+      </div>
+
+      <div class="section-title">我的冷冻名单</div>
+      <div class="frozen-list" id="frozenList">
+        <!-- Frozen players will be listed here -->
+      </div>
+    </div>
+
+    <!-- History Page -->
+    <div class="page-container history-page" id="historyPage" style="display: none;">
+      <header class="page-header">
+        <button class="back-btn" id="historyBackBtn">←</button>
+        <h1>历史战绩</h1>
+      </header>
+      <div class="history-list" id="historyList">
+        <div class="loading-container">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leaderboard Page -->
+    <div class="page-container leaderboard-page" id="leaderboardPage" style="display: none;">
+      <header class="page-header">
+        <button class="back-btn" id="leaderboardBackBtn">←</button>
+        <h1>排行榜</h1>
+      </header>
+      <div class="leaderboard-list" id="leaderboardList">
+        <div class="loading-container">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal-mask" id="loginModal" style="display: none;">
+      <div class="modal-content">
+        <h2>欢迎来到 NBA 58</h2>
+        <p>请输入昵称开始游戏</p>
+        <input type="text" id="loginNickname" placeholder="输入你的昵称" maxlength="20">
+        <button class="primary-btn" id="loginSubmitBtn">开始游戏</button>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

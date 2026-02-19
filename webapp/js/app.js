@@ -1,0 +1,944 @@
+// Main Application
+
+const App = {
+  // State
+  state: {
+    user: null,
+    gameList: [],
+    loading: true,
+    loadingMorePast: false,
+    loadingMoreFuture: false,
+    activeGameId: null,
+    gameLoading: null,
+    currentMode: 'regular',
+    currentModeId: 1,
+    selectedDate: Utils.formatDate(new Date(), 'YYYY-MM-DD'),
+    frozenPlayerIds: [],
+    selectionInfo: null,
+    currentTab: 'schedule',
+    dateOptions: []
+  },
+
+  // DOM Elements cache
+  elements: {},
+
+  // Initialize
+  async init() {
+    this.cacheElements();
+    this.bindEvents();
+    await this.ensureLogin();
+    await this.initTimeline(this.state.selectedDate);
+  },
+
+  // Cache DOM elements
+  cacheElements() {
+    this.elements = {
+      // Header
+      currentModeName: document.getElementById('currentModeName'),
+      currentSelectionName: document.getElementById('currentSelectionName'),
+      selectionLockTime: document.getElementById('selectionLockTime'),
+      lockTimeRow: document.getElementById('lockTimeRow'),
+      lockStatus: document.getElementById('lockStatus'),
+      
+      // Timeline
+      timelineScroll: document.getElementById('timelineScroll'),
+      timelineContent: document.getElementById('timelineContent'),
+      loadingContainer: document.getElementById('loadingContainer'),
+      
+      // Buttons
+      syncScheduleBtn: document.getElementById('syncScheduleBtn'),
+      scrollToTodayBtn: document.getElementById('scrollToTodayBtn'),
+      refreshScoresBtn: document.getElementById('refreshScoresBtn'),
+      
+      // Tab Bar
+      openModePanel: document.getElementById('openModePanel'),
+      selectedDateLabel: document.getElementById('selectedDateLabel'),
+      tabSelectionText: document.getElementById('tabSelectionText'),
+      
+      // Mode Sheet
+      modeSheetMask: document.getElementById('modeSheetMask'),
+      modeSheet: document.getElementById('modeSheet'),
+      closeModePanel: document.getElementById('closeModePanel'),
+      dateTagList: document.getElementById('dateTagList'),
+      regularSelection: document.getElementById('regularSelection'),
+      plus58Selection: document.getElementById('plus58Selection'),
+      minus58Selection: document.getElementById('minus58Selection'),
+      lockTip: document.getElementById('lockTip'),
+      
+      // Pages
+      profilePage: document.getElementById('profilePage'),
+      historyPage: document.getElementById('historyPage'),
+      leaderboardPage: document.getElementById('leaderboardPage'),
+      
+      // Profile
+      userAvatar: document.getElementById('userAvatar'),
+      userNickname: document.getElementById('userNickname'),
+      userGroupName: document.getElementById('userGroupName'),
+      userTotalScore: document.getElementById('userTotalScore'),
+      userRank: document.getElementById('userRank'),
+      frozenList: document.getElementById('frozenList'),
+      historyMenuItem: document.getElementById('historyMenuItem'),
+      leaderboardMenuItem: document.getElementById('leaderboardMenuItem'),
+      historyBackBtn: document.getElementById('historyBackBtn'),
+      leaderboardBackBtn: document.getElementById('leaderboardBackBtn'),
+      historyList: document.getElementById('historyList'),
+      leaderboardList: document.getElementById('leaderboardList'),
+      
+      // Login
+      loginModal: document.getElementById('loginModal'),
+      loginNickname: document.getElementById('loginNickname'),
+      loginSubmitBtn: document.getElementById('loginSubmitBtn'),
+      
+      // Toast
+      toast: document.getElementById('toast')
+    };
+  },
+
+  // Bind Events
+  bindEvents() {
+    // Tab bar
+    document.querySelectorAll('.tab-bar-item[data-page]').forEach(item => {
+      item.addEventListener('click', (e) => this.handleTabSwitch(e.currentTarget.dataset.page));
+    });
+
+    // Mode panel
+    this.elements.openModePanel.addEventListener('click', () => this.showModePanel());
+    this.elements.modeSheetMask.addEventListener('click', () => this.hideModePanel());
+    this.elements.closeModePanel.addEventListener('click', () => this.hideModePanel());
+
+    // Mode items
+    document.querySelectorAll('.mode-item').forEach(item => {
+      item.addEventListener('click', (e) => this.handleModeSelect(e.currentTarget.dataset.mode));
+    });
+
+    // Buttons
+    this.elements.syncScheduleBtn.addEventListener('click', () => this.handleSyncSchedule());
+    this.elements.scrollToTodayBtn.addEventListener('click', () => this.scrollToToday());
+    this.elements.refreshScoresBtn.addEventListener('click', () => this.handleRefreshToday());
+
+    // Profile menu
+    this.elements.historyMenuItem.addEventListener('click', () => this.showHistoryPage());
+    this.elements.leaderboardMenuItem.addEventListener('click', () => this.showLeaderboardPage());
+    this.elements.historyBackBtn.addEventListener('click', () => this.hideHistoryPage());
+    this.elements.leaderboardBackBtn.addEventListener('click', () => this.hideLeaderboardPage());
+
+    // Login
+    this.elements.loginSubmitBtn.addEventListener('click', () => this.handleLogin());
+    this.elements.loginNickname.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') this.handleLogin();
+    });
+
+    // Scroll events for infinite scroll
+    this.elements.timelineScroll.addEventListener('scroll', Utils.debounce(() => {
+      const { scrollTop, scrollHeight, clientHeight } = this.elements.timelineScroll;
+      
+      if (scrollTop < 50) {
+        this.handleScrollToUpper();
+      }
+      
+      if (scrollTop + clientHeight >= scrollHeight - 50) {
+        this.handleScrollToLower();
+      }
+    }, 200));
+  },
+
+  // Login
+  async ensureLogin() {
+    let user = Utils.storage.get('user');
+    
+    if (!user) {
+      this.showLoginModal();
+      return new Promise((resolve) => {
+        this._loginResolve = resolve;
+      });
+    }
+    
+    this.state.user = user;
+    return user;
+  },
+
+  showLoginModal() {
+    this.elements.loginModal.style.display = 'flex';
+    this.elements.loginNickname.value = Utils.generateNickname();
+    this.elements.loginNickname.focus();
+  },
+
+  hideLoginModal() {
+    this.elements.loginModal.style.display = 'none';
+  },
+
+  async handleLogin() {
+    const nickname = this.elements.loginNickname.value.trim();
+    if (!nickname) {
+      this.showToast('请输入昵称');
+      return;
+    }
+
+    try {
+      const user = await API.login(nickname);
+      Utils.storage.set('user', user);
+      this.state.user = user;
+      this.hideLoginModal();
+      
+      if (this._loginResolve) {
+        this._loginResolve(user);
+      }
+    } catch (error) {
+      this.showToast(error.message || '登录失败');
+    }
+  },
+
+  // Timeline
+  async initTimeline(focusDate) {
+    this.showLoading();
+    
+    try {
+      const start = this.addDays(focusDate, -3);
+      const end = this.addDays(focusDate, 3);
+      
+      await this.fetchGameRange(start, end, 'initial');
+      
+      // Scroll to focus date
+      setTimeout(() => {
+        const dateEl = document.getElementById(`date-${focusDate}`);
+        if (dateEl) {
+          dateEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+
+      // Load date options
+      await this.loadDateOptions();
+      
+      // Load current selections
+      await this.fetchCurrentSelections(focusDate);
+      await this.fetchFrozenList(this.state.currentModeId);
+
+    } catch (error) {
+      console.error('Init timeline error:', error);
+      this.showToast('加载失败');
+    } finally {
+      this.hideLoading();
+      this.state.loading = false;
+    }
+  },
+
+  async fetchGameRange(start, end, type = 'initial') {
+    const res = await API.getGamesRange(start, end);
+    
+    if (!res) return;
+
+    const newGroups = res.map(g => {
+      const d = new Date(g.date);
+      return {
+        ...g,
+        dateStr: Utils.formatDate(d, 'MM月DD日'),
+        weekStr: Utils.formatDate(d, 'WW'),
+        isToday: Utils.isToday(g.date),
+        games: g.games.map(game => Utils.formatGame(game))
+      };
+    });
+
+    if (type === 'initial') {
+      this.state.gameList = newGroups;
+    } else if (type === 'prepend') {
+      this.state.gameList = [...newGroups, ...this.state.gameList];
+      this.state.loadingMorePast = false;
+    } else if (type === 'append') {
+      this.state.gameList = [...this.state.gameList, ...newGroups];
+      this.state.loadingMoreFuture = false;
+    }
+
+    this.renderTimeline();
+  },
+
+  renderTimeline() {
+    let html = '';
+
+    this.state.gameList.forEach(dayGroup => {
+      html += `
+        <div class="date-group" id="date-${dayGroup.date}">
+          <div class="date-header ${dayGroup.isToday ? 'is-today' : ''}">
+            <span class="day-text">${dayGroup.dateStr}</span>
+            <span class="week-text">${dayGroup.weekStr}</span>
+            ${dayGroup.isToday ? '<span class="today-tag">今日</span>' : ''}
+          </div>
+      `;
+
+      if (dayGroup.games.length) {
+        dayGroup.games.forEach(game => {
+          html += this.renderGameCard(game, dayGroup.date);
+        });
+      } else {
+        html += `
+          <div class="no-games-day">本日无比赛</div>
+        `;
+      }
+
+      html += '</div>';
+    });
+
+    // Add loading indicators
+    if (this.state.loadingMorePast) {
+      html = `<div class="loading-more"><div class="spinner"></div></div>` + html;
+    }
+    
+    if (this.state.loadingMoreFuture) {
+      html += `<div class="loading-more"><div class="spinner"></div></div>`;
+    }
+
+    this.elements.timelineContent.innerHTML = html;
+    this.bindGameCardEvents();
+  },
+
+  renderGameCard(game, date) {
+    const isExpanded = this.state.activeGameId === game.external_id;
+    const hasScore = game.status === 'Final' || game.status === 'InProgress' || (game.home_score ?? 0) > 0;
+    
+    let html = `
+      <div class="game-card ${isExpanded ? 'expanded' : ''}" data-game-id="${game.external_id}" data-date="${date}" data-has-players="${game.hasPlayers}">
+        <div class="game-summary">
+          <div class="team-block visitor">
+            <img class="team-logo" src="https://cdn.nba.com/logos/nba/${game.visitor_team_id}/global/L/logo.svg" alt="${game.visitor_team_name}">
+            <div class="team-name">${game.visitor_team_name}</div>
+          </div>
+
+          <div class="score-board">
+            <div class="score-line">
+              ${hasScore ? `
+                <span class="score-num ${game.status === 'InProgress' ? 'live' : ''} ${game.visitor_score > game.home_score ? 'win' : ''}">${game.visitor_score}</span>
+                <span class="score-divider">:</span>
+                <span class="score-num ${game.status === 'InProgress' ? 'live' : ''} ${game.home_score > game.visitor_score ? 'win' : ''}">${game.home_score}</span>
+              ` : `<span class="vs-text">VS</span>`}
+            </div>
+            <div class="game-status-row">
+              <span class="status-text">${game.status}</span>
+              <span class="time-text">${game.tipoff_time_short}</span>
+            </div>
+          </div>
+
+          <div class="team-block home">
+            <img class="team-logo" src="https://cdn.nba.com/logos/nba/${game.home_team_id}/global/L/logo.svg" alt="${game.home_team_name}">
+            <div class="team-name">${game.home_team_name}</div>
+          </div>
+
+          <div class="expand-tag">${isExpanded ? '▲' : '▼'}</div>
+        </div>
+    `;
+
+    if (isExpanded) {
+      html += this.renderPlayersSection(game, date);
+    }
+
+    html += '</div>';
+    return html;
+  },
+
+  renderPlayersSection(game, date) {
+    const isLive = game.status === 'InProgress' || game.status === 'Final';
+    const sectionTitle = isLive ? '技术统计' : '选择球员';
+    
+    let html = `
+      <div class="players-section">
+        <div class="divider"></div>
+        <div class="section-label">
+          <span>${sectionTitle} (${CONFIG.MODE_NAMES[this.state.currentModeId]})</span>
+          <span class="refresh-text sync-day-btn" data-date="${date}">刷新</span>
+        </div>
+    `;
+
+    if (this.state.gameLoading === game.external_id) {
+      html += `
+        <div class="card-loading">
+          <div class="spinner"></div>
+          <span>正在同步数据...</span>
+        </div>
+      `;
+    } else if (game.hasPlayers) {
+      html += `
+        <div class="players-columns">
+          ${this.renderTeamColumn(game, 'visitor', date)}
+          ${this.renderTeamColumn(game, 'home', date)}
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="no-players">
+          <span>暂无数据</span>
+          <button class="mini-sync-btn sync-day-btn" data-date="${date}">刷新数据</button>
+        </div>
+      `;
+    }
+
+    html += '</div>';
+    return html;
+  },
+
+  renderTeamColumn(game, type, date) {
+    const isVisitor = type === 'visitor';
+    const teamName = isVisitor ? game.visitor_team_name : game.home_team_name;
+    const players = isVisitor ? game.visitorPlayersSorted : game.homePlayersSorted;
+    const columnClass = isVisitor ? 'visitor-column' : 'home-column';
+    const subText = isVisitor ? '客队' : '主队';
+    const isLive = game.status === 'InProgress' || game.status === 'Final';
+
+    let html = `
+      <div class="team-column ${columnClass}">
+        <div class="team-column-header">
+          <span class="team-column-name">${teamName}</span>
+          <span class="team-column-sub">${subText}</span>
+        </div>
+        <div class="team-column-list">
+    `;
+
+    if (players.length) {
+      players.forEach(player => {
+        const isFrozen = this.state.frozenPlayerIds.includes(player.player_id);
+        html += `
+          <div class="player-chip ${isFrozen ? 'disabled' : ''}" data-player='${JSON.stringify(player)}' data-date="${date}">
+            <div class="player-info">
+              <div class="p-name">${player.player_name}</div>
+              <div class="p-team">${player.team_name}</div>
+              <div class="p-avg-inline">均 ${player.seasonAvgDisplay || '--'}</div>
+            </div>
+            <div class="p-stat">
+              ${isLive ? `
+                <span class="p-live-score ${player.stats_points >= 10 ? 'high' : ''}">${player.stats_points}</span>
+                <span class="p-live-sub">分</span>
+              ` : `<span class="p-avg">均 ${player.seasonAvgDisplay || '--'}</span>`}
+            </div>
+          </div>
+        `;
+      });
+    } else {
+      html += `<div class="no-players-mini">暂无数据</div>`;
+    }
+
+    html += '</div></div>';
+    return html;
+  },
+
+  bindGameCardEvents() {
+    // Game card toggle
+    document.querySelectorAll('.game-summary').forEach(el => {
+      el.addEventListener('click', (e) => {
+        const card = e.currentTarget.closest('.game-card');
+        const gameId = card.dataset.gameId;
+        const date = card.dataset.date;
+        const hasPlayers = card.dataset.hasPlayers === 'true';
+        this.toggleGame(gameId, date, hasPlayers);
+      });
+    });
+
+    // Sync day buttons
+    document.querySelectorAll('.sync-day-btn').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const date = e.currentTarget.dataset.date;
+        this.syncGameData(date);
+      });
+    });
+
+    // Player chips
+    document.querySelectorAll('.player-chip:not(.disabled)').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const playerData = JSON.parse(e.currentTarget.dataset.player);
+        const date = e.currentTarget.dataset.date;
+        this.handleSelectPlayer(playerData, date);
+      });
+    });
+  },
+
+  toggleGame(gameId, date, hasPlayers) {
+    if (this.state.activeGameId === gameId) {
+      this.state.activeGameId = null;
+    } else {
+      this.state.activeGameId = gameId;
+      
+      if (!hasPlayers) {
+        this.syncGameData(date);
+      }
+    }
+    this.renderTimeline();
+  },
+
+  async syncGameData(date) {
+    const gameId = this.state.activeGameId;
+    this.state.gameLoading = gameId;
+    this.renderTimeline();
+
+    try {
+      await API.syncGames(date);
+      await this.refreshDateInList(date);
+    } catch (error) {
+      this.showToast('同步失败');
+    } finally {
+      this.state.gameLoading = null;
+    }
+  },
+
+  async refreshDateInList(date) {
+    const res = await API.getGamesRange(date, date);
+    if (!res || !res.length) return;
+
+    const newGroup = res.map(g => {
+      const d = new Date(g.date);
+      return {
+        ...g,
+        dateStr: Utils.formatDate(d, 'MM月DD日'),
+        weekStr: Utils.formatDate(d, 'WW'),
+        isToday: Utils.isToday(g.date),
+        games: g.games.map(game => Utils.formatGame(game))
+      };
+    });
+
+    const idx = this.state.gameList.findIndex(g => g.date === date);
+    if (idx >= 0) {
+      this.state.gameList.splice(idx, 1, ...newGroup);
+    } else {
+      this.state.gameList.push(...newGroup);
+      this.state.gameList.sort((a, b) => a.date.localeCompare(b.date));
+    }
+    this.renderTimeline();
+  },
+
+  async handleSelectPlayer(player, date) {
+    if (!this.state.user) {
+      this.showToast('请先登录');
+      return;
+    }
+
+    if (this.state.selectionInfo && 
+        this.state.selectionInfo.date === date && 
+        this.state.selectionInfo.canModify === false) {
+      this.showToast('已超过锁定时间，无法修改');
+      return;
+    }
+
+    if (this.state.frozenPlayerIds.includes(player.player_id)) {
+      this.showToast('该球员在冷冻期');
+      return;
+    }
+
+    const confirmed = confirm(`确认以「${CONFIG.MODE_NAMES[this.state.currentModeId]}」玩法锁定 ${player.player_name}？`);
+    if (!confirmed) return;
+
+    try {
+      await API.submitSelection({
+        userId: this.state.user.id,
+        playerId: player.player_id,
+        playMode: this.state.currentModeId,
+        gameDate: date
+      });
+      
+      this.showToast('锁定成功');
+      await this.fetchFrozenList(this.state.currentModeId);
+      await this.fetchCurrentSelections(date);
+    } catch (error) {
+      this.showToast(error.message || '提交失败');
+    }
+  },
+
+  async fetchCurrentSelections(date) {
+    if (!this.state.user) return;
+
+    try {
+      const targetDate = date || this.state.selectedDate || Utils.formatDate(new Date(), 'YYYY-MM-DD');
+      const res = await API.getCurrentSelections(this.state.user.id, targetDate);
+      const currentSelection = res?.modes ? res.modes[String(this.state.currentModeId)] : null;
+      
+      this.state.selectionInfo = res;
+
+      this.elements.currentSelectionName.textContent = currentSelection ? currentSelection.player_name : '未选择';
+      
+      if (res?.deadline) {
+        this.elements.lockTimeRow.style.display = 'flex';
+        this.elements.selectionLockTime.textContent = Utils.formatDate(new Date(res.deadline), 'MM-DD HH:mm');
+        this.elements.lockStatus.textContent = res.canModify === false ? '已锁定' : '';
+      } else {
+        this.elements.lockTimeRow.style.display = 'none';
+      }
+
+      // Update tab bar
+      this.elements.tabSelectionText.textContent = currentSelection ? `已选：${currentSelection.player_name}` : '未选择';
+
+      // Update mode panel selections
+      this.updateModePanelSelections(res);
+
+    } catch (error) {
+      console.error('Fetch selections error:', error);
+    }
+  },
+
+  updateModePanelSelections(res) {
+    const modes = res?.modes || {};
+    
+    this.elements.regularSelection.textContent = modes['1'] ? `已选：${modes['1'].player_name}` : '未选择';
+    this.elements.plus58Selection.textContent = modes['2'] ? `已选：${modes['2'].player_name}` : '未选择';
+    this.elements.minus58Selection.textContent = modes['3'] ? `已选：${modes['3'].player_name}` : '未选择';
+
+    if (res?.canModify === false) {
+      this.elements.lockTip.style.display = 'block';
+    } else {
+      this.elements.lockTip.style.display = 'none';
+    }
+  },
+
+  async fetchFrozenList(modeId) {
+    if (!this.state.user) return;
+
+    try {
+      const list = await API.getFrozenPlayers(this.state.user.id, modeId);
+      this.state.frozenPlayerIds = (list || []).map(item => item.player_id);
+    } catch (error) {
+      console.error('Fetch frozen error:', error);
+    }
+  },
+
+  // Mode Panel
+  async showModePanel() {
+    await this.loadDateOptions();
+    this.elements.modeSheetMask.classList.add('show');
+    this.elements.modeSheet.classList.add('show');
+  },
+
+  hideModePanel() {
+    this.elements.modeSheetMask.classList.remove('show');
+    this.elements.modeSheet.classList.remove('show');
+  },
+
+  async loadDateOptions() {
+    if (this.state.dateOptions.length > 0) return;
+
+    try {
+      const dates = await API.getUpcomingDates();
+      const options = (dates || []).map(date => {
+        const d = new Date(date);
+        const label = Utils.isToday(date) 
+          ? `今日 ${Utils.formatDate(d, 'MM-DD')}` 
+          : `${Utils.formatDate(d, 'MM-DD')} ${Utils.formatDate(d, 'WW')}`;
+        return { date, label };
+      });
+
+      this.state.dateOptions = options;
+      this.renderDateOptions();
+    } catch (error) {
+      console.error('Load date options error:', error);
+    }
+  },
+
+  renderDateOptions() {
+    let html = '';
+    
+    this.state.dateOptions.forEach(option => {
+      const isActive = option.date === this.state.selectedDate;
+      html += `
+        <div class="date-tag ${isActive ? 'active' : ''}" data-date="${option.date}">
+          ${option.label}
+        </div>
+      `;
+    });
+
+    if (!this.state.dateOptions.length) {
+      html = '<div class="date-empty">暂无可选比赛日</div>';
+    }
+
+    this.elements.dateTagList.innerHTML = html;
+
+    // Bind events
+    document.querySelectorAll('.date-tag').forEach(el => {
+      el.addEventListener('click', (e) => {
+        this.selectDate(e.currentTarget.dataset.date);
+      });
+    });
+  },
+
+  selectDate(date) {
+    this.state.selectedDate = date;
+    const option = this.state.dateOptions.find(o => o.date === date);
+    this.elements.selectedDateLabel.textContent = option ? option.label : Utils.formatDate(new Date(date), 'MM-DD');
+    this.renderDateOptions();
+    this.fetchCurrentSelections(date);
+    this.fetchFrozenList(this.state.currentModeId);
+  },
+
+  handleModeSelect(modeKey) {
+    const modeId = CONFIG.MODE_MAP[modeKey];
+    if (!modeId) return;
+
+    if (this.state.selectionInfo?.canModify === false) {
+      this.showToast('今日已锁定');
+      return;
+    }
+
+    this.state.currentMode = modeKey;
+    this.state.currentModeId = modeId;
+    this.elements.currentModeName.textContent = CONFIG.MODE_NAMES[modeId];
+    
+    this.hideModePanel();
+    this.fetchCurrentSelections(this.state.selectedDate);
+    this.fetchFrozenList(modeId);
+  },
+
+  // Infinite scroll
+  handleScrollToUpper() {
+    if (this.state.loadingMorePast || !this.state.gameList.length) return;
+    this.state.loadingMorePast = true;
+
+    const firstDate = this.state.gameList[0].date;
+    const start = this.addDays(firstDate, -4);
+    const end = this.addDays(firstDate, -1);
+    
+    this.fetchGameRange(start, end, 'prepend');
+  },
+
+  handleScrollToLower() {
+    if (this.state.loadingMoreFuture || !this.state.gameList.length) return;
+    this.state.loadingMoreFuture = true;
+
+    const lastDate = this.state.gameList[this.state.gameList.length - 1].date;
+    const start = this.addDays(lastDate, 1);
+    const end = this.addDays(lastDate, 4);
+    
+    this.fetchGameRange(start, end, 'append');
+  },
+
+  // Actions
+  async handleSyncSchedule() {
+    this.showToast('正在更新赛程...');
+    
+    try {
+      const res = await API.syncSchedule();
+      const count = res.games || res.totalGames || 0;
+      this.showToast(`已更新${count}场比赛`);
+      
+      const today = Utils.formatDate(new Date(), 'YYYY-MM-DD');
+      await this.initTimeline(today);
+    } catch (error) {
+      this.showToast('更新失败');
+    }
+  },
+
+  scrollToToday() {
+    const today = Utils.formatDate(new Date(), 'YYYY-MM-DD');
+    const inList = this.state.gameList.find(g => g.date === today);
+    
+    if (!inList) {
+      this.initTimeline(today);
+    } else {
+      const dateEl = document.getElementById(`date-${today}`);
+      if (dateEl) {
+        dateEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  },
+
+  async handleRefreshToday() {
+    const today = Utils.formatDate(new Date(), 'YYYY-MM-DD');
+    
+    try {
+      const res = await API.refreshScores(today);
+      
+      if (res && res.updated > 0) {
+        this.showToast(`已更新${res.updated}场比赛`);
+        await this.refreshDateInList(today);
+      } else {
+        this.showToast('暂无更新');
+      }
+    } catch (error) {
+      this.showToast('刷新失败');
+    }
+  },
+
+  // Tab switching
+  handleTabSwitch(page) {
+    document.querySelectorAll('.tab-bar-item .text').forEach(el => el.classList.remove('active'));
+    const clickedTab = document.querySelector(`.tab-bar-item[data-page="${page}"] .text`);
+    if (clickedTab) clickedTab.classList.add('active');
+
+    if (page === 'schedule') {
+      this.elements.profilePage.style.display = 'none';
+      this.elements.timelineScroll.style.display = 'block';
+      document.querySelector('.header').style.display = 'block';
+    } else if (page === 'profile') {
+      this.elements.timelineScroll.style.display = 'none';
+      document.querySelector('.header').style.display = 'none';
+      this.showProfile();
+    }
+  },
+
+  // Profile
+  async showProfile() {
+    this.elements.profilePage.style.display = 'block';
+    
+    if (this.state.user) {
+      this.elements.userNickname.textContent = this.state.user.nickname || '球迷';
+      this.elements.userAvatar.src = this.state.user.avatarUrl || 'https://img.yzcdn.cn/vant/cat.jpeg';
+      this.elements.userTotalScore.textContent = this.state.user.totalScore || 0;
+      if (this.elements.userGroupName) {
+        this.elements.userGroupName.textContent = '默认小组';
+      }
+      
+      this.loadUserRank();
+      this.loadFrozenPlayers();
+    }
+  },
+
+  async loadUserRank() {
+    try {
+      const res = await API.getLeaderboard('overall');
+      const list = res?.data || res || [];
+      const myRank = list.findIndex(u => u.userId === this.state.user.id || u.id === this.state.user.id);
+      this.elements.userRank.textContent = myRank >= 0 ? myRank + 1 : '--';
+    } catch (error) {
+      console.error('Load rank error:', error);
+    }
+  },
+
+  async loadFrozenPlayers() {
+    try {
+      const list = await API.getFrozenPlayers(this.state.user.id, this.state.currentModeId);
+      
+      if (list && list.length) {
+        let html = '';
+        list.forEach(item => {
+          html += `
+            <div class="frozen-card">
+              <div class="frozen-info">
+                <div class="frozen-name">${item.player_name}</div>
+                <div class="frozen-date">解冻: ${item.expires_at}</div>
+              </div>
+              <div class="frozen-status">❄️</div>
+            </div>
+          `;
+        });
+        this.elements.frozenList.innerHTML = html;
+      } else {
+        this.elements.frozenList.innerHTML = `
+          <div class="empty-frozen">
+            <div class="empty-text">暂无冷冻球员</div>
+          </div>
+        `;
+      }
+    } catch (error) {
+      console.error('Load frozen error:', error);
+    }
+  },
+
+  // History
+  async showHistoryPage() {
+    this.elements.historyPage.style.display = 'block';
+    await this.loadHistory();
+  },
+
+  hideHistoryPage() {
+    this.elements.historyPage.style.display = 'none';
+  },
+
+  async loadHistory() {
+    try {
+      const data = await API.getSelectionHistory(this.state.user.id, 50);
+      
+      if (data && data.length) {
+        let html = '';
+        data.forEach(record => {
+          const date = new Date(record.game_date);
+          html += `
+            <div class="history-card">
+              <div class="history-header">
+                <span class="history-date">${Utils.formatDate(date, 'YYYY-MM-DD')}</span>
+                <span class="history-mode">${CONFIG.MODE_NAMES[record.play_mode] || '常规模式'}</span>
+              </div>
+              <div class="history-player">${record.player_name}</div>
+              <div class="history-stats">
+                <span>场均: ${Utils.formatSeasonAvg(record.player_season_avg)}</span>
+                <span class="history-score">实际: ${record.player_actual_score ?? '--'} 分</span>
+              </div>
+            </div>
+          `;
+        });
+        this.elements.historyList.innerHTML = html;
+      } else {
+        this.elements.historyList.innerHTML = '<div class="no-players">暂无记录</div>';
+      }
+    } catch (error) {
+      console.error('Load history error:', error);
+      this.elements.historyList.innerHTML = '<div class="no-players">加载失败</div>';
+    }
+  },
+
+  // Leaderboard
+  async showLeaderboardPage() {
+    this.elements.leaderboardPage.style.display = 'block';
+    await this.loadLeaderboard();
+  },
+
+  hideLeaderboardPage() {
+    this.elements.leaderboardPage.style.display = 'none';
+  },
+
+  async loadLeaderboard() {
+    try {
+      const data = await API.getAllUsers(100);
+      
+      if (data && data.length) {
+        let html = '';
+        data.forEach((user, index) => {
+          const rank = index + 1;
+          const isCurrentUser = user.id === this.state.user.id;
+          const rankClass = rank <= 3 ? `top-${rank}` : 'normal';
+          
+          html += `
+            <div class="leaderboard-item ${isCurrentUser ? 'current-user' : ''}">
+              <div class="rank-num ${rankClass}">${rank}</div>
+              <img class="leaderboard-avatar" src="${user.avatarUrl || 'https://img.yzcdn.cn/vant/cat.jpeg'}" alt="${user.nickname}">
+              <div class="leaderboard-info">
+                <div class="leaderboard-name">${user.nickname || '球迷'}</div>
+              </div>
+              <div class="leaderboard-score">${user.totalScore || 0}</div>
+            </div>
+          `;
+        });
+        this.elements.leaderboardList.innerHTML = html;
+      } else {
+        this.elements.leaderboardList.innerHTML = '<div class="no-players">暂无数据</div>';
+      }
+    } catch (error) {
+      console.error('Load leaderboard error:', error);
+      this.elements.leaderboardList.innerHTML = '<div class="no-players">加载失败</div>';
+    }
+  },
+
+  // Utilities
+  addDays(dateStr, days) {
+    const d = new Date(dateStr);
+    d.setDate(d.getDate() + days);
+    return Utils.formatDate(d, 'YYYY-MM-DD');
+  },
+
+  showLoading() {
+    this.elements.loadingContainer.innerHTML = `
+      <div class="spinner"></div>
+      <p>加载中...</p>
+    `;
+    this.elements.loadingContainer.style.display = 'flex';
+  },
+
+  hideLoading() {
+    this.elements.loadingContainer.style.display = 'none';
+  },
+
+  showToast(message, duration = 2000) {
+    this.elements.toast.textContent = message;
+    this.elements.toast.classList.add('show');
+    
+    setTimeout(() => {
+      this.elements.toast.classList.remove('show');
+    }, duration);
+  }
+};
+
+// Initialize app when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  App.init();
+});

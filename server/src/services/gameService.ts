@@ -165,7 +165,7 @@ export const syncDailyData = async (targetDate?: string) => {
       totalPlayers++;
     }
     
-    // 如果有boxscore数据，插入那些不在BBR场均数据中但有得分的球员
+    // 如果有boxscore数据，插入那些不在BBR场均数据中但有得分的球员（复用已获取的boxscoreData）
     if (boxscoreData && game.status === 'Final') {
       const existingNames = new Set([
         ...homePlayers.map(p => p.playerName.toLowerCase()),
@@ -213,7 +213,7 @@ export const syncDailyData = async (targetDate?: string) => {
           }
         }
       } catch (e) {
-        // 忽略
+        console.log(`Failed to insert extra boxscore players for ${game.gameDate}`);
       }
     }
   }

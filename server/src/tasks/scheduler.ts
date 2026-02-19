@@ -9,7 +9,7 @@ export const bootstrapSchedulers = () => {
   cron.schedule(config.syncCron, async () => {
     try {
       await syncDailyData();
-      purgeExpiredFrozen();
+      await purgeExpiredFrozen();
       console.info(`[cron] 同步今日赛程/球员完成`);
     } catch (error) {
       console.error('[cron] 同步失败', error);

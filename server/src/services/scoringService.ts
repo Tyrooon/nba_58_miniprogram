@@ -1,6 +1,5 @@
 import db from '../db';
 import { toDateKey } from '../utils/date';
-import { getDailyGames, getGameBoxscore } from './nbaService';
 import { getSelectionsByDate, saveSelectionScores } from './selectionService';
 
 const bonusRules = [
@@ -37,23 +36,15 @@ const assignBonus = (list: Array<{ selectionId: number; base: number }>) => {
   return map;
 };
 
-const getStatsForDate = async (dateKey: string) => {
-    const games = await getDailyGames(dateKey);
-    const statsMap: Record<number, number> = {};
+const getStatsForDate = async (dateKey: string): Promise<Record<number, number>> => {
+    const rows = await db.prepare(
+      `SELECT player_id, stats_points FROM daily_players
+       WHERE game_date = ? AND stats_status = 'played' AND stats_points IS NOT NULL`
+    ).all([dateKey]) as any[];
     
-    for (const game of games) {
-        const box = await getGameBoxscore(game.gameId);
-        if (!box) continue;
-        
-        [box.homeTeam, box.awayTeam].forEach(team => {
-            if (team.players) {
-                team.players.forEach(p => {
-                    if (p.statistics) {
-                        statsMap[p.personId] = p.statistics.points;
-                    }
-                });
-            }
-        });
+    const statsMap: Record<number, number> = {};
+    for (const row of rows) {
+      statsMap[row.player_id] = Number(row.stats_points ?? 0);
     }
     return statsMap;
 };

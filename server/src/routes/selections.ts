@@ -21,14 +21,18 @@ router.post('/', async (req, res, next) => {
   }
 });
 
-router.get('/history', async (req, res) => {
-  const userId = Number(req.query.userId);
-  const limit = Number(req.query.limit ?? 30);
-  if (!userId) {
-    return res.status(400).json({ message: 'userId必填' });
+router.get('/history', async (req, res, next) => {
+  try {
+    const userId = Number(req.query.userId);
+    const limit = Number(req.query.limit ?? 30);
+    if (!userId) {
+      return res.status(400).json({ message: 'userId必填' });
+    }
+    const data = await getSelectionHistory(userId, limit);
+    res.json(data);
+  } catch (error) {
+    next(error);
   }
-  const data = await getSelectionHistory(userId, limit);
-  res.json(data);
 });
 
 router.get('/current', async (req, res, next) => {

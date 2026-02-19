@@ -4,11 +4,14 @@ import { toDateKey } from '../utils/date';
 
 const router = Router();
 
-router.get('/today', async (req, res) => {
-  const dateKey = toDateKey(req.query.date as string | undefined);
-  // Now await the result
-  const games = await getGamesWithPlayers(dateKey);
-  res.json({ date: dateKey, games });
+router.get('/today', async (req, res, next) => {
+  try {
+    const dateKey = toDateKey(req.query.date as string | undefined);
+    const games = await getGamesWithPlayers(dateKey);
+    res.json({ date: dateKey, games });
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.get('/range', async (req, res, next) => {

@@ -31,8 +31,8 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   res.status(400).json({ message: err.message });
 });
 
-const start = () => {
-  purgeExpiredFrozen();
+const start = async () => {
+  await purgeExpiredFrozen();
   bootstrapSchedulers();
   app.listen(config.port, () => {
     console.log(`NBA球星58竞猜API running on http://localhost:${config.port}`);
