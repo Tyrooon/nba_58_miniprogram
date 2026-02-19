@@ -250,7 +250,10 @@ const bootstrap = async () => {
 
     // Auth columns migration
     try {
-      await db.exec(`ALTER TABLE users ADD COLUMN username TEXT UNIQUE;`);
+      await db.exec(`ALTER TABLE users ADD COLUMN username TEXT;`);
+    } catch (e) { /* ignore if exists */ }
+    try {
+      await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username);`);
     } catch (e) { /* ignore if exists */ }
     try {
       await db.exec(`ALTER TABLE users ADD COLUMN password_hash TEXT;`);
