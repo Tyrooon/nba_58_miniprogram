@@ -62,7 +62,7 @@ export const toStatsDate = (cnDateStr: string) => {
     return dayjs(cnDateStr).subtract(1, 'day').format('MM/DD/YYYY');
 };
 
-export const toChinaDateTime = (input?: string | Date) => dayjs(input).tz(CHINA_TZ);
+export const toChinaDateTime = (input?: string | Date) => dayjs.tz(input, CHINA_TZ);
 
 export const startOfDayUtc = (input?: string | Date) =>
   (input ? dayjs(input) : dayjs()).tz(CHINA_TZ).startOf('day').toDate();
