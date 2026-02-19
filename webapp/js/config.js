@@ -1,9 +1,9 @@
 // Config - API Base URL
 // Change this to your server address
 const CONFIG = {
-  // API_BASE: window.location.origin + '/api',
-  // For local development, use:
-  API_BASE: 'http://localhost:4000/api',
+  API_BASE: window.location.hostname === 'localhost'
+    ? 'http://localhost:4000/api'
+    : window.location.origin + '/api',
   
   MODE_MAP: {
     regular: 1,

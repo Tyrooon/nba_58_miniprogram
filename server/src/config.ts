@@ -18,8 +18,10 @@ export const config = {
   freezeDays: 7,
 };
 
+const dataDir = process.env.DATA_DIR || path.resolve(__dirname, '..', 'data');
+
 export const paths = {
   root: path.resolve(__dirname, '..'),
-  data: path.resolve(__dirname, '..', 'data'),
-  dbFile: path.resolve(__dirname, '..', 'data', 'nba_guess.db'),
+  data: dataDir,
+  dbFile: path.resolve(dataDir, 'nba_guess.db'),
 };

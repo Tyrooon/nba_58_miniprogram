@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import cors from 'cors';
 import './db';
 import { config } from './config';
@@ -26,9 +27,18 @@ app.use('/api/selections', selectionsRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/admin', adminRouter);
 
+// Serve webapp static files (built into dist/public by root build script)
+const publicDir = path.resolve(__dirname, 'public');
+app.use(express.static(publicDir));
+
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);
   res.status(400).json({ message: err.message });
+});
+
+// Fallback: serve index.html for non-API routes (SPA support)
+app.get('*', (_req, res) => {
+  res.sendFile(path.resolve(publicDir, 'index.html'));
 });
 
 const start = async () => {

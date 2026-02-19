@@ -1,5 +1,10 @@
 import sqlite3 from 'sqlite3';
+import fs from 'fs';
 import { paths } from './config';
+
+if (!fs.existsSync(paths.data)) {
+  fs.mkdirSync(paths.data, { recursive: true });
+}
 
 const sqlite = sqlite3.verbose();
 
