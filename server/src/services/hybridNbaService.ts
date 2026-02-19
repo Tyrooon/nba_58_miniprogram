@@ -412,11 +412,15 @@ export async function getBBRAllPlayerStats(): Promise<BBRPlayer[]> {
   const rowRegex = /<tr[^>]*>[\s\S]*?<td[^>]*data-stat="name_display"[^>]*>(?:<a[^>]*href="\/players\/[a-z]\/([^"]+)\.html"[^>]*>)?([^<]+)(?:<\/a>)?<\/td>[\s\S]*?<td[^>]*data-stat="age"[^>]*>[^<]*<\/td>[\s\S]*?<td[^>]*data-stat="team_name_abbr"[^>]*>(?:<a[^>]*>)?([^<]*)(?:<\/a>)?<\/td>[\s\S]*?<td[^>]*data-stat="pos"[^>]*>([^<]*)<\/td>[\s\S]*?<td[^>]*data-stat="games"[^>]*>([^<]*)<\/td>[\s\S]*?<td[^>]*data-stat="games_started"[^>]*>[^<]*<\/td>[\s\S]*?<td[^>]*data-stat="mp_per_g"[^>]*>[^<]*<\/td>[\s\S]*?(?:[\s\S]*?<td[^>]*data-stat="trb_per_g"[^>]*>([^<]*)<\/td>)?[\s\S]*?(?:<td[^>]*data-stat="ast_per_g"[^>]*>([^<]*)<\/td>)?[\s\S]*?<td[^>]*data-stat="pts_per_g"[^>]*>([^<]*)<\/td>/gi;
 
   let match;
+  const allRows: BBRPlayer[] = [];
   while ((match = rowRegex.exec(html)) !== null) {
     const [, playerId, playerName, teamAbbr, pos, games, trb, ast, pts] = match;
     if (!playerName || !teamAbbr) continue;
 
-    players.push({
+    // Skip "TOT" (total) rows for traded players — they don't map to a real team
+    if (teamAbbr === 'TOT' || teamAbbr === '2TM' || teamAbbr === '3TM') continue;
+
+    allRows.push({
       playerId: playerId || playerName.toLowerCase().replace(/\s+/g, ''),
       playerName: playerName.trim().replace(/&amp;/g, '&'),
       teamAbbr,
@@ -429,7 +433,15 @@ export async function getBBRAllPlayerStats(): Promise<BBRPlayer[]> {
     });
   }
 
-  console.log(`Found ${players.length} players from BBR`);
+  // Deduplicate traded players: BBR lists rows chronologically,
+  // so the last row is the player's current team.
+  const playerMap = new Map<string, BBRPlayer>();
+  for (const p of allRows) {
+    playerMap.set(p.playerId, p);
+  }
+  players.push(...playerMap.values());
+
+  console.log(`Found ${players.length} players from BBR (${allRows.length} rows before dedup)`);
   playerStatsCache = { data: players, fetchedAt: now };
   return players;
 }
