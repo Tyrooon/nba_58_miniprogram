@@ -37,16 +37,18 @@ export const syncDailyData = async (targetDate?: string) => {
   const dateKey = targetDate || getTodayBeijing();
   console.log(`Syncing data for ${dateKey}...`);
   
-  // 获取前后7天的比赛
+  // 获取前后7天的赛程（用于展示未来比赛）
   const startDate = addDays(dateKey, -7);
   const endDate = addDays(dateKey, 7);
   
   const games = await getGamesInRange(startDate, endDate);
   
-  // 先清理指定日期范围的旧数据
-  console.log(`Clearing old data from ${startDate} to ${endDate}...`);
-  await db.prepare('DELETE FROM games WHERE game_date >= ? AND game_date <= ?').run([startDate, endDate]);
-  await db.prepare('DELETE FROM daily_players WHERE game_date >= ? AND game_date <= ?').run([startDate, endDate]);
+  // 仅清理最近 ±1 天的 daily_players（状态可能有变化的日期）
+  // 不再删除 games 表（依赖 UPSERT 更新）
+  const freshStart = addDays(dateKey, -1);
+  const freshEnd = addDays(dateKey, 1);
+  console.log(`Refreshing daily_players for ${freshStart} to ${freshEnd}...`);
+  await db.prepare('DELETE FROM daily_players WHERE game_date >= ? AND game_date <= ?').run([freshStart, freshEnd]);
   
   const insertGameStmt = db.prepare(`
     INSERT INTO games (external_id, game_date, status, tipoff, home_team_id, home_team_name, visitor_team_id, visitor_team_name, home_score, visitor_score, season)
@@ -75,11 +77,10 @@ export const syncDailyData = async (targetDate?: string) => {
     totalGames++;
   }
 
-  // 获取BBR球员场均数据
-  console.log('Fetching BBR player stats...');
+  // 获取球员场均数据
+  console.log('Fetching player stats...');
   const allPlayerStats = await getBBRAllPlayerStats();
   
-  // 按球队分组
   const playersByTeam = new Map<number, typeof allPlayerStats>();
   for (const player of allPlayerStats) {
     if (!playersByTeam.has(player.teamId)) {
@@ -102,14 +103,27 @@ export const syncDailyData = async (targetDate?: string) => {
       stats_status = excluded.stats_status
   `);
 
-  // 为每场比赛同步球员数据
+  // 检查哪些日期已有完整的球员数据（已 Final 的历史比赛）
+  const existingDates = new Set<string>();
+  const existingRows = await db.prepare(
+    `SELECT DISTINCT game_date FROM daily_players WHERE game_date >= ? AND game_date <= ? AND stats_status = 'played'`
+  ).all([startDate, endDate]) as any[];
+  for (const row of existingRows) existingDates.add(row.game_date);
+
   let totalPlayers = 0;
+  let skippedGames = 0;
   for (const game of games) {
-    // 获取主客队球员（从BBR场均数据中）
+    // 跳过已有完整球员数据的历史 Final 比赛（不在刷新窗口内）
+    const inFreshWindow = game.gameDate >= freshStart && game.gameDate <= freshEnd;
+    if (!inFreshWindow && game.status === 'Final' && existingDates.has(game.gameDate)) {
+      skippedGames++;
+      continue;
+    }
+
     const homePlayers = playersByTeam.get(game.homeTeamId) || [];
     const awayPlayers = playersByTeam.get(game.awayTeamId) || [];
     
-    // 如果比赛已结束，获取boxscore数据
+    // 仅对需要刷新的 Final 比赛获取 boxscore
     let boxscoreResult: { homePlayers: any[]; awayPlayers: any[] } | null = null;
     let boxscoreData: Map<string, { points: number; rebounds: number; assists: number }> | null = null;
     if (game.status === 'Final') {
@@ -166,7 +180,6 @@ export const syncDailyData = async (targetDate?: string) => {
       totalPlayers++;
     }
     
-    // 插入boxscore中存在但不在场均数据中的球员（复用已获取的boxscoreResult）
     if (boxscoreResult && game.status === 'Final') {
       const existingNames = new Set([
         ...homePlayers.map(p => p.playerName.toLowerCase()),
@@ -212,7 +225,7 @@ export const syncDailyData = async (targetDate?: string) => {
     }
   }
 
-  console.log(`Synced ${totalGames} games and ${totalPlayers} players`);
+  console.log(`Synced ${totalGames} games, ${totalPlayers} players (skipped ${skippedGames} games with existing data)`);
   return { games: totalGames, players: totalPlayers };
 };
 
