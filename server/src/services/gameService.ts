@@ -110,13 +110,14 @@ export const syncDailyData = async (targetDate?: string) => {
     const awayPlayers = playersByTeam.get(game.awayTeamId) || [];
     
     // 如果比赛已结束，获取boxscore数据
+    let boxscoreResult: { homePlayers: any[]; awayPlayers: any[] } | null = null;
     let boxscoreData: Map<string, { points: number; rebounds: number; assists: number }> | null = null;
     if (game.status === 'Final') {
       try {
-        const boxscore = await getBBRBoxscore(game.gameDate, game.homeTeamId, game.nbaGameDate);
-        if (boxscore) {
+        boxscoreResult = await getBBRBoxscore(game.gameDate, game.homeTeamId, game.nbaGameDate);
+        if (boxscoreResult) {
           boxscoreData = new Map();
-          for (const p of [...boxscore.homePlayers, ...boxscore.awayPlayers]) {
+          for (const p of [...boxscoreResult.homePlayers, ...boxscoreResult.awayPlayers]) {
             boxscoreData.set(p.playerName.toLowerCase(), {
               points: p.points,
               rebounds: p.rebounds,
@@ -165,55 +166,48 @@ export const syncDailyData = async (targetDate?: string) => {
       totalPlayers++;
     }
     
-    // 如果有boxscore数据，插入那些不在BBR场均数据中但有得分的球员（复用已获取的boxscoreData）
-    if (boxscoreData && game.status === 'Final') {
+    // 插入boxscore中存在但不在场均数据中的球员（复用已获取的boxscoreResult）
+    if (boxscoreResult && game.status === 'Final') {
       const existingNames = new Set([
         ...homePlayers.map(p => p.playerName.toLowerCase()),
         ...awayPlayers.map(p => p.playerName.toLowerCase()),
       ]);
       
-      try {
-        const boxscore = await getBBRBoxscore(game.gameDate, game.homeTeamId, game.nbaGameDate);
-        if (boxscore) {
-          for (const p of boxscore.homePlayers) {
-            if (!existingNames.has(p.playerName.toLowerCase())) {
-              await insertPlayerStmt.run({
-                game_date: game.gameDate,
-                team_id: game.homeTeamId,
-                team_name: game.homeTeamNameCn,
-                player_id: hashString(p.playerId || p.playerName),
-                player_name: p.playerName,
-                position: '',
-                season_avg: 0,
-                stats_points: p.points,
-                stats_rebounds: p.rebounds,
-                stats_assists: p.assists,
-                stats_status: 'played',
-              });
-              totalPlayers++;
-            }
-          }
-          for (const p of boxscore.awayPlayers) {
-            if (!existingNames.has(p.playerName.toLowerCase())) {
-              await insertPlayerStmt.run({
-                game_date: game.gameDate,
-                team_id: game.awayTeamId,
-                team_name: game.awayTeamNameCn,
-                player_id: hashString(p.playerId || p.playerName),
-                player_name: p.playerName,
-                position: '',
-                season_avg: 0,
-                stats_points: p.points,
-                stats_rebounds: p.rebounds,
-                stats_assists: p.assists,
-                stats_status: 'played',
-              });
-              totalPlayers++;
-            }
-          }
+      for (const p of boxscoreResult.homePlayers) {
+        if (!existingNames.has(p.playerName.toLowerCase())) {
+          await insertPlayerStmt.run({
+            game_date: game.gameDate,
+            team_id: game.homeTeamId,
+            team_name: game.homeTeamNameCn,
+            player_id: hashString(p.playerId || p.playerName),
+            player_name: p.playerName,
+            position: '',
+            season_avg: 0,
+            stats_points: p.points,
+            stats_rebounds: p.rebounds,
+            stats_assists: p.assists,
+            stats_status: 'played',
+          });
+          totalPlayers++;
         }
-      } catch (e) {
-        console.log(`Failed to insert extra boxscore players for ${game.gameDate}`);
+      }
+      for (const p of boxscoreResult.awayPlayers) {
+        if (!existingNames.has(p.playerName.toLowerCase())) {
+          await insertPlayerStmt.run({
+            game_date: game.gameDate,
+            team_id: game.awayTeamId,
+            team_name: game.awayTeamNameCn,
+            player_id: hashString(p.playerId || p.playerName),
+            player_name: p.playerName,
+            position: '',
+            season_avg: 0,
+            stats_points: p.points,
+            stats_rebounds: p.rebounds,
+            stats_assists: p.assists,
+            stats_status: 'played',
+          });
+          totalPlayers++;
+        }
       }
     }
   }

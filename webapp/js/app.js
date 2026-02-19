@@ -83,11 +83,23 @@ const App = {
       leaderboardBackBtn: document.getElementById('leaderboardBackBtn'),
       historyList: document.getElementById('historyList'),
       leaderboardList: document.getElementById('leaderboardList'),
+      logoutBtn: document.getElementById('logoutBtn'),
       
-      // Login
-      loginModal: document.getElementById('loginModal'),
-      loginNickname: document.getElementById('loginNickname'),
+      // Auth
+      authModal: document.getElementById('authModal'),
+      authTabLogin: document.getElementById('authTabLogin'),
+      authTabRegister: document.getElementById('authTabRegister'),
+      loginForm: document.getElementById('loginForm'),
+      registerForm: document.getElementById('registerForm'),
+      loginUsername: document.getElementById('loginUsername'),
+      loginPassword: document.getElementById('loginPassword'),
       loginSubmitBtn: document.getElementById('loginSubmitBtn'),
+      forgotPasswordBtn: document.getElementById('forgotPasswordBtn'),
+      regUsername: document.getElementById('regUsername'),
+      regPassword: document.getElementById('regPassword'),
+      regConfirmPassword: document.getElementById('regConfirmPassword'),
+      regNickname: document.getElementById('regNickname'),
+      registerSubmitBtn: document.getElementById('registerSubmitBtn'),
       
       // Nickname modal
       nicknameModal: document.getElementById('nicknameModal'),
@@ -131,6 +143,7 @@ const App = {
     this.elements.historyMenuItem.addEventListener('click', () => this.showHistoryPage());
     this.elements.leaderboardMenuItem.addEventListener('click', () => this.showLeaderboardPage());
     this.elements.historyBackBtn.addEventListener('click', () => this.hideHistoryPage());
+    this.elements.logoutBtn.addEventListener('click', () => this.handleLogout());
     this.elements.leaderboardBackBtn.addEventListener('click', () => this.hideLeaderboardPage());
 
     // Profile edit
@@ -143,10 +156,26 @@ const App = {
       if (e.key === 'Enter') this.handleNicknameSubmit();
     });
 
-    // Login
-    this.elements.loginSubmitBtn.addEventListener('click', () => this.handleLogin());
-    this.elements.loginNickname.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') this.handleLogin();
+    // Auth tabs
+    this.elements.authTabLogin.addEventListener('click', () => this.switchAuthTab('login'));
+    this.elements.authTabRegister.addEventListener('click', () => this.switchAuthTab('register'));
+    this.elements.loginSubmitBtn.addEventListener('click', () => this.handleAuthLogin());
+    this.elements.registerSubmitBtn.addEventListener('click', () => this.handleRegister());
+    this.elements.forgotPasswordBtn.addEventListener('click', () => {
+      alert('请联系管理员重置密码。');
+    });
+    this.elements.loginPassword.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') this.handleAuthLogin();
+    });
+    this.elements.regNickname.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') this.handleRegister();
+    });
+    // Auto-fill nickname from username
+    this.elements.regUsername.addEventListener('input', () => {
+      if (!this.elements.regNickname.value || this.elements.regNickname.value === this._lastAutoNickname) {
+        this._lastAutoNickname = this.elements.regUsername.value;
+        this.elements.regNickname.value = this.elements.regUsername.value;
+      }
     });
 
     // Scroll events for infinite scroll
@@ -163,50 +192,108 @@ const App = {
     }, 200));
   },
 
-  // Login
+  // Auth
+  _lastAutoNickname: '',
+
   async ensureLogin() {
     let user = Utils.storage.get('user');
-    
+
     if (!user) {
-      this.showLoginModal();
+      this.showAuthModal();
       return new Promise((resolve) => {
         this._loginResolve = resolve;
       });
     }
-    
+
     this.state.user = user;
     return user;
   },
 
-  showLoginModal() {
-    this.elements.loginModal.style.display = 'flex';
-    this.elements.loginNickname.value = Utils.generateNickname();
-    this.elements.loginNickname.focus();
+  showAuthModal() {
+    this.elements.authModal.style.display = 'flex';
+    this.switchAuthTab('login');
+    this.elements.loginUsername.focus();
   },
 
-  hideLoginModal() {
-    this.elements.loginModal.style.display = 'none';
+  hideAuthModal() {
+    this.elements.authModal.style.display = 'none';
   },
 
-  async handleLogin() {
-    const nickname = this.elements.loginNickname.value.trim();
-    if (!nickname) {
-      this.showToast('请输入昵称');
-      return;
+  switchAuthTab(tab) {
+    const isLogin = tab === 'login';
+    this.elements.authTabLogin.classList.toggle('active', isLogin);
+    this.elements.authTabRegister.classList.toggle('active', !isLogin);
+    this.elements.loginForm.style.display = isLogin ? 'block' : 'none';
+    this.elements.registerForm.style.display = isLogin ? 'none' : 'block';
+    if (isLogin) {
+      this.elements.loginUsername.focus();
+    } else {
+      this.elements.regUsername.focus();
     }
+  },
+
+  async handleAuthLogin() {
+    const username = this.elements.loginUsername.value.trim();
+    const password = this.elements.loginPassword.value;
+
+    if (!username) { this.showToast('请输入用户ID'); return; }
+    if (!password) { this.showToast('请输入密码'); return; }
+
+    this.elements.loginSubmitBtn.disabled = true;
+    this.elements.loginSubmitBtn.textContent = '登录中...';
 
     try {
-      const user = await API.login(nickname);
+      const user = await API.authLogin(username, password);
       Utils.storage.set('user', user);
       this.state.user = user;
-      this.hideLoginModal();
-      
-      if (this._loginResolve) {
-        this._loginResolve(user);
-      }
+      this.hideAuthModal();
+      if (this._loginResolve) this._loginResolve(user);
     } catch (error) {
       this.showToast(error.message || '登录失败');
+    } finally {
+      this.elements.loginSubmitBtn.disabled = false;
+      this.elements.loginSubmitBtn.textContent = '登 录';
     }
+  },
+
+  async handleRegister() {
+    const username = this.elements.regUsername.value.trim();
+    const password = this.elements.regPassword.value;
+    const confirmPassword = this.elements.regConfirmPassword.value;
+    const nickname = this.elements.regNickname.value.trim();
+
+    if (!username) { this.showToast('请输入用户ID'); return; }
+    if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) {
+      this.showToast('用户ID仅支持3-20位英文、数字、下划线');
+      return;
+    }
+    if (!password || password.length < 6) { this.showToast('密码至少6位'); return; }
+    if (password !== confirmPassword) { this.showToast('两次密码不一致'); return; }
+
+    this.elements.registerSubmitBtn.disabled = true;
+    this.elements.registerSubmitBtn.textContent = '注册中...';
+
+    try {
+      const user = await API.register(username, password, confirmPassword, nickname || username);
+      Utils.storage.set('user', user);
+      this.state.user = user;
+      this.hideAuthModal();
+      this.showToast('注册成功！');
+      if (this._loginResolve) this._loginResolve(user);
+    } catch (error) {
+      this.showToast(error.message || '注册失败');
+    } finally {
+      this.elements.registerSubmitBtn.disabled = false;
+      this.elements.registerSubmitBtn.textContent = '注 册';
+    }
+  },
+
+  handleLogout() {
+    if (!confirm('确定要退出登录吗？')) return;
+    Utils.storage.remove('user');
+    this.state.user = null;
+    this.handleTabSwitch('schedule');
+    location.reload();
   },
 
   // Timeline

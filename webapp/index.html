@@ -179,6 +179,8 @@
       <div class="frozen-list" id="frozenList">
         <!-- Frozen players will be listed here -->
       </div>
+
+      <button class="logout-btn" id="logoutBtn">退出登录</button>
     </div>
 
     <!-- History Page -->
@@ -223,13 +225,52 @@
       </div>
     </div>
 
-    <!-- Login Modal -->
-    <div class="modal-mask" id="loginModal" style="display: none;">
-      <div class="modal-content">
-        <h2>欢迎来到 NBA 58</h2>
-        <p>请输入昵称开始游戏</p>
-        <input type="text" id="loginNickname" placeholder="输入你的昵称" maxlength="20">
-        <button class="primary-btn" id="loginSubmitBtn">开始游戏</button>
+    <!-- Auth Modal (Login / Register) -->
+    <div class="modal-mask" id="authModal" style="display: none;">
+      <div class="auth-card">
+        <div class="auth-logo">🏀</div>
+        <h2 class="auth-title">NBA 58 竞猜</h2>
+
+        <!-- Tab Switcher -->
+        <div class="auth-tabs">
+          <div class="auth-tab active" id="authTabLogin" data-tab="login">登录</div>
+          <div class="auth-tab" id="authTabRegister" data-tab="register">注册</div>
+        </div>
+
+        <!-- Login Form -->
+        <div class="auth-form" id="loginForm">
+          <div class="auth-field">
+            <label>用户ID</label>
+            <input type="text" id="loginUsername" placeholder="请输入用户ID" maxlength="20" autocomplete="username">
+          </div>
+          <div class="auth-field">
+            <label>密码</label>
+            <input type="password" id="loginPassword" placeholder="请输入密码" maxlength="32" autocomplete="current-password">
+          </div>
+          <button class="primary-btn auth-submit" id="loginSubmitBtn">登 录</button>
+          <div class="auth-forgot" id="forgotPasswordBtn">忘记密码？</div>
+        </div>
+
+        <!-- Register Form -->
+        <div class="auth-form" id="registerForm" style="display: none;">
+          <div class="auth-field">
+            <label>用户ID</label>
+            <input type="text" id="regUsername" placeholder="英文、数字、下划线（3-20位）" maxlength="20" autocomplete="username">
+          </div>
+          <div class="auth-field">
+            <label>密码</label>
+            <input type="password" id="regPassword" placeholder="至少6位" maxlength="32" autocomplete="new-password">
+          </div>
+          <div class="auth-field">
+            <label>确认密码</label>
+            <input type="password" id="regConfirmPassword" placeholder="再次输入密码" maxlength="32" autocomplete="new-password">
+          </div>
+          <div class="auth-field">
+            <label>昵称 <span class="auth-hint">（选填，默认与用户ID相同）</span></label>
+            <input type="text" id="regNickname" placeholder="支持中英文、数字、符号等" maxlength="20">
+          </div>
+          <button class="primary-btn auth-submit" id="registerSubmitBtn">注 册</button>
+        </div>
       </div>
     </div>
 

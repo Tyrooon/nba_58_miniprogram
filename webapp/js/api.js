@@ -38,9 +38,23 @@ const API = {
     }
   },
   
-  // User APIs
+  // Auth APIs
+  async register(username, password, confirmPassword, nickname) {
+    return this.request('/users/register', {
+      method: 'POST',
+      data: { username, password, confirmPassword, nickname }
+    });
+  },
+  
+  async authLogin(username, password) {
+    return this.request('/users/auth-login', {
+      method: 'POST',
+      data: { username, password }
+    });
+  },
+  
+  // Legacy login (kept for miniapp compatibility)
   async login(nickname, avatarUrl) {
-    // Web 端无微信 code，使用本地持久化的 UUID 作为 openid
     let openid = localStorage.getItem('web_openid');
     if (!openid) {
       openid = 'web_' + crypto.randomUUID();

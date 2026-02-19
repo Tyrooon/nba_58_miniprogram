@@ -2,19 +2,14 @@
  * 混合NBA数据服务
  * 
  * 数据来源:
- * 1. NBA官方API - 获取赛程和比分
- * 2. Basketball Reference - 获取球员阵容和场均得分
- * 
- * 功能:
- * - 赛程: 当天前后3天的NBA比赛
- * - 比分: NBA官方API实时更新
- * - 球员阵容: BBR获取
- * - 场均得分: BBR获取
- * - 伤病状态: NBA官方API获取
+ * 1. NBA官方CDN - 获取赛程和实时比分
+ * 2. SportsBlaze API - 获取比赛Boxscore和球员数据
+ * 3. NBA CDN Boxscore - 作为SportsBlaze的后备数据源
  */
 
 import fetch from 'node-fetch';
 import { config } from '../config';
+import db from '../db';
 
 // ==================== 时区转换 ====================
 
@@ -68,13 +63,129 @@ const NBA_CDN_BASE = 'https://cdn.nba.com/static/json/liveData';
 const NBA_STATIC_BASE = 'https://cdn.nba.com/static/json/staticData';
 const NBA_STATS_BASE = 'https://stats.nba.com/stats';
 
-const NBA_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Accept': 'application/json',
+const NBA_HEADERS: Record<string, string> = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'application/json, text/plain, */*',
   'Accept-Language': 'en-US,en;q=0.9',
   'Referer': 'https://www.nba.com/',
   'Origin': 'https://www.nba.com',
 };
+
+// ==================== SportsBlaze API ====================
+
+const SB_BASE = 'https://api.sportsblaze.com/nba/v1';
+
+const SB_TEAM_NAME_TO_ID: Record<string, number> = {
+  'Atlanta Hawks': 1610612737, 'Boston Celtics': 1610612738,
+  'Brooklyn Nets': 1610612751, 'Charlotte Hornets': 1610612766,
+  'Chicago Bulls': 1610612741, 'Cleveland Cavaliers': 1610612739,
+  'Dallas Mavericks': 1610612742, 'Denver Nuggets': 1610612743,
+  'Detroit Pistons': 1610612765, 'Golden State Warriors': 1610612744,
+  'Houston Rockets': 1610612745, 'Indiana Pacers': 1610612754,
+  'LA Clippers': 1610612746, 'Los Angeles Clippers': 1610612746,
+  'Los Angeles Lakers': 1610612747, 'Memphis Grizzlies': 1610612763,
+  'Miami Heat': 1610612748, 'Milwaukee Bucks': 1610612749,
+  'Minnesota Timberwolves': 1610612750, 'New Orleans Pelicans': 1610612740,
+  'New York Knicks': 1610612752, 'Oklahoma City Thunder': 1610612760,
+  'Orlando Magic': 1610612753, 'Philadelphia 76ers': 1610612755,
+  'Phoenix Suns': 1610612756, 'Portland Trail Blazers': 1610612757,
+  'Sacramento Kings': 1610612758, 'San Antonio Spurs': 1610612759,
+  'Toronto Raptors': 1610612761, 'Utah Jazz': 1610612762,
+  'Washington Wizards': 1610612764,
+};
+
+const SB_TEAM_NAME_TO_ABBR: Record<string, string> = {
+  'Atlanta Hawks': 'ATL', 'Boston Celtics': 'BOS',
+  'Brooklyn Nets': 'BRK', 'Charlotte Hornets': 'CHO',
+  'Chicago Bulls': 'CHI', 'Cleveland Cavaliers': 'CLE',
+  'Dallas Mavericks': 'DAL', 'Denver Nuggets': 'DEN',
+  'Detroit Pistons': 'DET', 'Golden State Warriors': 'GSW',
+  'Houston Rockets': 'HOU', 'Indiana Pacers': 'IND',
+  'LA Clippers': 'LAC', 'Los Angeles Clippers': 'LAC',
+  'Los Angeles Lakers': 'LAL', 'Memphis Grizzlies': 'MEM',
+  'Miami Heat': 'MIA', 'Milwaukee Bucks': 'MIL',
+  'Minnesota Timberwolves': 'MIN', 'New Orleans Pelicans': 'NOP',
+  'New York Knicks': 'NYK', 'Oklahoma City Thunder': 'OKC',
+  'Orlando Magic': 'ORL', 'Philadelphia 76ers': 'PHI',
+  'Phoenix Suns': 'PHO', 'Portland Trail Blazers': 'POR',
+  'Sacramento Kings': 'SAC', 'San Antonio Spurs': 'SAS',
+  'Toronto Raptors': 'TOR', 'Utah Jazz': 'UTA',
+  'Washington Wizards': 'WAS',
+};
+
+const sbBoxscoreCache = new Map<string, { data: any; fetchedAt: number }>();
+const SB_BOXSCORE_CACHE_TTL = 10 * 60 * 1000;
+const SB_EMPTY_CACHE_TTL = 60 * 60 * 1000;
+let lastSBRequestAt = 0;
+const SB_MIN_INTERVAL = 1200;
+let sbRateLimitedUntil = 0;
+
+async function fetchSBBoxscores(dateStr: string): Promise<any | null> {
+  const now = Date.now();
+  const cached = sbBoxscoreCache.get(dateStr);
+  if (cached) {
+    const ttl = (cached.data?.games?.length > 0) ? SB_BOXSCORE_CACHE_TTL : SB_EMPTY_CACHE_TTL;
+    if (now - cached.fetchedAt < ttl) return cached.data;
+  }
+
+  if (Date.now() < sbRateLimitedUntil) {
+    return cached?.data || null;
+  }
+
+  const wait = SB_MIN_INTERVAL - (now - lastSBRequestAt);
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  lastSBRequestAt = Date.now();
+
+  const url = `${SB_BASE}/boxscores/daily/${dateStr}.json?key=${config.sportsBlazeApiKey}`;
+
+  try {
+    const res = await fetch(url);
+    if (res.status === 404) {
+      const empty = { games: [] };
+      sbBoxscoreCache.set(dateStr, { data: empty, fetchedAt: Date.now() });
+      return empty;
+    }
+    if (res.status === 429) {
+      console.warn(`SportsBlaze rate-limited (429) for ${dateStr}, backing off 120s`);
+      sbRateLimitedUntil = Date.now() + 120_000;
+      return cached?.data || null;
+    }
+    if (!res.ok) {
+      console.error(`SportsBlaze boxscores ${res.status} for ${dateStr}`);
+      return cached?.data || null;
+    }
+    const data = await res.json() as any;
+    if (data?.error) {
+      const empty = { games: [] };
+      sbBoxscoreCache.set(dateStr, { data: empty, fetchedAt: Date.now() });
+      return empty;
+    }
+    sbBoxscoreCache.set(dateStr, { data, fetchedAt: Date.now() });
+    const cnt = data?.games?.length || 0;
+    if (cnt > 0) console.log(`  SportsBlaze: ${cnt} games for ${dateStr}`);
+    return data;
+  } catch (e) {
+    console.error(`SportsBlaze fetch error for ${dateStr}:`, e);
+    return cached?.data || null;
+  }
+}
+
+function parseSBRoster(roster: any[], teamName: string): BBRBoxscorePlayer[] {
+  if (!roster) return [];
+  const teamAbbr = SB_TEAM_NAME_TO_ABBR[teamName] || '';
+
+  return roster
+    .filter((p: any) => p.played && p.stats)
+    .map((p: any) => ({
+      playerId: p.id || '',
+      playerName: p.name || '',
+      teamAbbr,
+      points: p.stats?.points ?? 0,
+      rebounds: p.stats?.rebounds ?? 0,
+      assists: p.stats?.assists ?? 0,
+      minutes: p.stats?.time_on_court || `${p.stats?.minutes || 0}:00`,
+    }));
+}
 
 // 赛程缓存
 let scheduleCache: { data: any[]; fetchedAt: number } | null = null;
@@ -282,53 +393,7 @@ async function fetchInjuryReport(): Promise<Map<number, InjuryInfo>> {
   return injuries;
 }
 
-// ==================== Basketball Reference API ====================
-
-const BBR_BASE = 'https://www.basketball-reference.com';
-const BBR_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-  'Accept-Language': 'en-US,en;q=0.5',
-};
-
-// BBR页面缓存
-const bbrPageCache: Record<string, { html: string; timestamp: number }> = {};
-const BBR_CACHE_TTL = 10 * 60 * 1000; // 10分钟缓存
-let lastBBRRequestTime = 0;
-const BBR_MIN_INTERVAL = 3500; // 3.5秒间隔避免429
-
-async function fetchBBRPage(url: string): Promise<string | null> {
-  // 检查缓存
-  if (bbrPageCache[url] && Date.now() - bbrPageCache[url].timestamp < BBR_CACHE_TTL) {
-    return bbrPageCache[url].html;
-  }
-
-  // 限速
-  const now = Date.now();
-  if (now - lastBBRRequestTime < BBR_MIN_INTERVAL) {
-    await new Promise(r => setTimeout(r, BBR_MIN_INTERVAL - (now - lastBBRRequestTime)));
-  }
-  lastBBRRequestTime = Date.now();
-
-  try {
-    const res = await fetch(url, { headers: BBR_HEADERS });
-    if (res.status === 429) {
-      console.log(`BBR rate limited for ${url}, waiting 30s...`);
-      await new Promise(r => setTimeout(r, 30000));
-      return fetchBBRPage(url);
-    }
-    if (!res.ok) {
-      console.log(`BBR request failed: ${res.status} for ${url}`);
-      return null;
-    }
-    const html = await res.text();
-    bbrPageCache[url] = { html, timestamp: Date.now() };
-    return html;
-  } catch (e) {
-    console.error(`BBR fetch error for ${url}:`, e);
-    return null;
-  }
-}
+// ==================== 球队映射 ====================
 
 // 球队缩写映射
 const TEAM_ABBR_TO_ID: Record<string, number> = {
@@ -391,57 +456,137 @@ export interface BBRBoxscorePlayer {
 let playerStatsCache: { data: BBRPlayer[]; fetchedAt: number } | null = null;
 
 /**
- * 从BBR获取所有球员场均数据
+ * 获取所有球员场均数据
+ * 优先从 player_game_log（全赛季历史数据）读取，
+ * 如不可用则降级为从 SportsBlaze 近期 boxscores 实时构建。
  */
 export async function getBBRAllPlayerStats(): Promise<BBRPlayer[]> {
   const now = Date.now();
-  if (playerStatsCache && now - playerStatsCache.fetchedAt < 60 * 60 * 1000) { // 1小时缓存
+  if (playerStatsCache && now - playerStatsCache.fetchedAt < 60 * 60 * 1000) {
     return playerStatsCache.data;
   }
 
-  const seasonYear = config.currentSeason + 1;
-  const url = `${BBR_BASE}/leagues/NBA_${seasonYear}_per_game.html`;
-  console.log(`Fetching BBR player stats from ${url}...`);
-  
-  const html = await fetchBBRPage(url);
-  if (!html) return playerStatsCache?.data || [];
+  const season = config.currentSeason;
+
+  // 优先尝试 player_game_log 全赛季数据
+  try {
+    const rows = await db.prepare(`
+      SELECT
+        a.player_sb_id, a.player_name, a.team_id, a.team_abbr, a.position,
+        b.gp, b.ppg, b.rpg, b.apg
+      FROM player_game_log a
+      INNER JOIN (
+        SELECT player_sb_id,
+               COUNT(*) as gp,
+               MAX(game_date) as last_date,
+               ROUND(AVG(points), 1) as ppg,
+               ROUND(AVG(rebounds), 1) as rpg,
+               ROUND(AVG(assists), 1) as apg
+        FROM player_game_log WHERE season = ?
+        GROUP BY player_sb_id
+      ) b ON a.player_sb_id = b.player_sb_id AND a.game_date = b.last_date
+      WHERE a.season = ?
+    `).all([season, season]) as any[];
+
+    if (rows.length >= 100) {
+      const players: BBRPlayer[] = rows.map((r: any) => ({
+        playerId: r.player_sb_id,
+        playerName: r.player_name,
+        teamAbbr: r.team_abbr || '',
+        teamId: r.team_id || 0,
+        position: r.position || '',
+        gamesPlayed: r.gp,
+        pointsPerGame: r.ppg,
+        reboundsPerGame: r.rpg,
+        assistsPerGame: r.apg,
+      }));
+      console.log(`Loaded ${players.length} players from player_game_log (full season, ${rows[0]?.gp || '?'}-game avg)`);
+      playerStatsCache = { data: players, fetchedAt: now };
+      return players;
+    }
+  } catch (e) {
+    console.log('player_game_log query failed, falling back to live boxscores');
+  }
+
+  // 降级：从 SportsBlaze 近期 boxscores 实时构建
+  return await buildPlayerStatsFromRecentBoxscores(now);
+}
+
+async function buildPlayerStatsFromRecentBoxscores(now: number): Promise<BBRPlayer[]> {
+  console.log('Building player roster from SportsBlaze recent boxscores...');
+
+  interface AccEntry {
+    name: string; teamName: string; teamId: number;
+    teamAbbr: string; position: string;
+    games: { pts: number; reb: number; ast: number }[];
+  }
+  const acc = new Map<string, AccEntry>();
+
+  const nbaToday = addDays(getTodayBeijing(), -1);
+  let datesWithGames = 0;
+  const teamsFound = new Set<number>();
+
+  for (let i = 0; i < 30 && datesWithGames < 7; i++) {
+    const dateStr = addDays(nbaToday, -i);
+    const data = await fetchSBBoxscores(dateStr);
+    if (!data?.games || data.games.length === 0) continue;
+
+    let hasFinals = false;
+    for (const game of data.games) {
+      if (game.status !== 'Final') continue;
+      hasFinals = true;
+
+      const process = (roster: any[], teamName: string) => {
+        if (!roster || !teamName) return;
+        const teamId = SB_TEAM_NAME_TO_ID[teamName] || 0;
+        const teamAbbr = SB_TEAM_NAME_TO_ABBR[teamName] || '';
+        if (teamId) teamsFound.add(teamId);
+
+        for (const p of roster) {
+          if (!p.id || !p.name || !p.played) continue;
+          let entry = acc.get(p.id);
+          if (!entry) {
+            entry = { name: p.name, teamName, teamId, teamAbbr, position: p.position || '', games: [] };
+            acc.set(p.id, entry);
+          }
+          entry.teamName = teamName;
+          entry.teamId = teamId;
+          entry.teamAbbr = teamAbbr;
+          if (p.position) entry.position = p.position;
+
+          if (p.stats) {
+            entry.games.push({
+              pts: p.stats.points ?? 0,
+              reb: p.stats.rebounds ?? 0,
+              ast: p.stats.assists ?? 0,
+            });
+          }
+        }
+      };
+
+      process(game.rosters?.away, game.teams?.away?.name);
+      process(game.rosters?.home, game.teams?.home?.name);
+    }
+    if (hasFinals) datesWithGames++;
+  }
 
   const players: BBRPlayer[] = [];
-
-  // 解析球员数据
-  const rowRegex = /<tr[^>]*>[\s\S]*?<td[^>]*data-stat="name_display"[^>]*>(?:<a[^>]*href="\/players\/[a-z]\/([^"]+)\.html"[^>]*>)?([^<]+)(?:<\/a>)?<\/td>[\s\S]*?<td[^>]*data-stat="age"[^>]*>[^<]*<\/td>[\s\S]*?<td[^>]*data-stat="team_name_abbr"[^>]*>(?:<a[^>]*>)?([^<]*)(?:<\/a>)?<\/td>[\s\S]*?<td[^>]*data-stat="pos"[^>]*>([^<]*)<\/td>[\s\S]*?<td[^>]*data-stat="games"[^>]*>([^<]*)<\/td>[\s\S]*?<td[^>]*data-stat="games_started"[^>]*>[^<]*<\/td>[\s\S]*?<td[^>]*data-stat="mp_per_g"[^>]*>[^<]*<\/td>[\s\S]*?(?:[\s\S]*?<td[^>]*data-stat="trb_per_g"[^>]*>([^<]*)<\/td>)?[\s\S]*?(?:<td[^>]*data-stat="ast_per_g"[^>]*>([^<]*)<\/td>)?[\s\S]*?<td[^>]*data-stat="pts_per_g"[^>]*>([^<]*)<\/td>/gi;
-
-  let match;
-  const allRows: BBRPlayer[] = [];
-  while ((match = rowRegex.exec(html)) !== null) {
-    const [, playerId, playerName, teamAbbr, pos, games, trb, ast, pts] = match;
-    if (!playerName || !teamAbbr) continue;
-
-    // Skip "TOT" (total) rows for traded players — they don't map to a real team
-    if (teamAbbr === 'TOT' || teamAbbr === '2TM' || teamAbbr === '3TM') continue;
-
-    allRows.push({
-      playerId: playerId || playerName.toLowerCase().replace(/\s+/g, ''),
-      playerName: playerName.trim().replace(/&amp;/g, '&'),
-      teamAbbr,
-      teamId: TEAM_ABBR_TO_ID[teamAbbr] || 0,
-      position: pos || '',
-      gamesPlayed: parseInt(games) || 0,
-      pointsPerGame: parseFloat(pts) || 0,
-      reboundsPerGame: parseFloat(trb) || 0,
-      assistsPerGame: parseFloat(ast) || 0,
+  for (const [id, info] of acc) {
+    const n = info.games.length || 1;
+    players.push({
+      playerId: id,
+      playerName: info.name,
+      teamAbbr: info.teamAbbr,
+      teamId: info.teamId,
+      position: info.position,
+      gamesPlayed: info.games.length,
+      pointsPerGame: Math.round(info.games.reduce((s, g) => s + g.pts, 0) / n * 10) / 10,
+      reboundsPerGame: Math.round(info.games.reduce((s, g) => s + g.reb, 0) / n * 10) / 10,
+      assistsPerGame: Math.round(info.games.reduce((s, g) => s + g.ast, 0) / n * 10) / 10,
     });
   }
 
-  // Deduplicate traded players: BBR lists rows chronologically,
-  // so the last row is the player's current team.
-  const playerMap = new Map<string, BBRPlayer>();
-  for (const p of allRows) {
-    playerMap.set(p.playerId, p);
-  }
-  players.push(...playerMap.values());
-
-  console.log(`Found ${players.length} players from BBR (${allRows.length} rows before dedup)`);
+  console.log(`Built roster: ${players.length} players, ${teamsFound.size} teams, ${datesWithGames} dates (fallback)`);
   playerStatsCache = { data: players, fetchedAt: now };
   return players;
 }
@@ -458,82 +603,89 @@ export async function getBBRTeamRoster(teamId: number): Promise<BBRPlayer[]> {
 }
 
 /**
- * 从BBR获取指定比赛的Boxscore
- * 注意：BBR使用美东时间的日期，需要从北京时间转换
- * @param gameDate 北京时间日期 YYYY-MM-DD
- * @param homeTeamId 主队ID
- * @param nbaGameDate 可选的NBA美东时间日期（如果知道的话）
+ * 获取比赛 Boxscore（优先 SportsBlaze，后备 NBA CDN）
  */
-export async function getBBRBoxscore(gameDate: string, homeTeamId: number, nbaGameDate?: string): Promise<{ homePlayers: BBRBoxscorePlayer[]; awayPlayers: BBRBoxscorePlayer[] } | null> {
-  const homeAbbr = ID_TO_TEAM_ABBR[homeTeamId];
-  if (!homeAbbr) return null;
+export async function getBBRBoxscore(
+  gameDate: string,
+  homeTeamId: number,
+  nbaGameDate?: string,
+  gameId?: string,
+): Promise<{ homePlayers: BBRBoxscorePlayer[]; awayPlayers: BBRBoxscorePlayer[] } | null> {
+  const datesToTry = nbaGameDate
+    ? [nbaGameDate, addDays(nbaGameDate, -1), addDays(nbaGameDate, 1)]
+    : [addDays(gameDate, -1), gameDate];
 
-  // BBR使用美东时间日期，通常比北京时间晚一天
-  // 如果提供了nbaGameDate，使用它；否则尝试北京时间减一天
-  const bbrDate = nbaGameDate || addDays(gameDate, -1);
-  const dateStr = bbrDate.replace(/-/g, '');
-  const gameId = `${dateStr}0${homeAbbr}`;
-  const url = `${BBR_BASE}/boxscores/${gameId}.html`;
-  
-  console.log(`Fetching BBR boxscore from ${url}...`);
-  const html = await fetchBBRPage(url);
-  if (!html) return null;
+  for (const dateStr of datesToTry) {
+    const data = await fetchSBBoxscores(dateStr);
+    if (!data?.games) continue;
 
-  const homePlayers = parseBBRPlayerTable(html, homeAbbr);
-  
-  // 查找客队缩写
-  const tableIds = html.match(/id="box-([A-Z]+)-game-basic"/g) || [];
-  let awayAbbr = '';
-  for (const id of tableIds) {
-    const m = id.match(/box-([A-Z]+)-game/);
-    if (m && m[1] !== homeAbbr) {
-      awayAbbr = m[1];
-      break;
+    const matchingGame = data.games.find((g: any) => {
+      const homeId = SB_TEAM_NAME_TO_ID[g.teams?.home?.name] || 0;
+      return homeId === homeTeamId;
+    });
+    if (!matchingGame) continue;
+
+    if (matchingGame.status !== 'Final' && matchingGame.status !== 'In Progress') continue;
+
+    const homePlayers = parseSBRoster(matchingGame.rosters?.home, matchingGame.teams?.home?.name);
+    const awayPlayers = parseSBRoster(matchingGame.rosters?.away, matchingGame.teams?.away?.name);
+
+    if (homePlayers.length > 0 || awayPlayers.length > 0) {
+      return { homePlayers, awayPlayers };
     }
   }
-  
-  const awayPlayers = awayAbbr ? parseBBRPlayerTable(html, awayAbbr) : [];
 
-  return { homePlayers, awayPlayers };
+  // NBA CDN 后备
+  let resolvedGameId: string | undefined = gameId;
+  if (!resolvedGameId) {
+    resolvedGameId = (await resolveGameId(gameDate, homeTeamId, nbaGameDate)) ?? undefined;
+  }
+  if (!resolvedGameId) return null;
+
+  console.log(`SportsBlaze miss, falling back to NBA CDN boxscore ${resolvedGameId}...`);
+  const boxData = await fetchNBABoxscore(resolvedGameId);
+  if (!boxData) return null;
+
+  return {
+    homePlayers: parseNBABoxscorePlayers(boxData.homeTeam),
+    awayPlayers: parseNBABoxscorePlayers(boxData.awayTeam),
+  };
 }
 
-function parseBBRPlayerTable(html: string, teamAbbr: string): BBRBoxscorePlayer[] {
-  const players: BBRBoxscorePlayer[] = [];
-  
-  const tableRegex = new RegExp(`<table[^>]*id="box-${teamAbbr}-game-basic"[^>]*>([\\s\\S]*?)<\\/table>`, 'i');
-  const tableMatch = html.match(tableRegex);
-  if (!tableMatch) return players;
+async function resolveGameId(gameDate: string, homeTeamId: number, nbaGameDate?: string): Promise<string | null> {
+  const datesToTry = nbaGameDate
+    ? [nbaGameDate, addDays(nbaGameDate, -1), addDays(nbaGameDate, 1)]
+    : [addDays(gameDate, -1), gameDate, addDays(gameDate, -2)];
 
-  const tableHtml = tableMatch[1];
-  const rowRegex = /<tr[^>]*>[\s\S]*?<th[^>]*data-stat="player"[^>]*>(?:<a[^>]*href="\/players\/[a-z]\/([^"]+)\.html"[^>]*>)?([^<]+)(?:<\/a>)?<\/th>([\s\S]*?)<\/tr>/gi;
-
-  let rowMatch;
-  while ((rowMatch = rowRegex.exec(tableHtml)) !== null) {
-    const playerId = rowMatch[1] || '';
-    const playerName = rowMatch[2].trim();
-    const rowData = rowMatch[3];
-
-    if (playerName.includes('Totals') || playerName.includes('Reserves') || playerName.includes('Starters')) {
-      continue;
-    }
-
-    const getStatValue = (stat: string): string => {
-      const m = rowData.match(new RegExp(`<td[^>]*data-stat="${stat}"[^>]*>([^<]*)<\\/td>`));
-      return m ? m[1] : '';
-    };
-
-    players.push({
-      playerId: playerId || playerName.toLowerCase().replace(/\s+/g, ''),
-      playerName: playerName.replace(/&amp;/g, '&'),
-      teamAbbr,
-      points: parseInt(getStatValue('pts')) || 0,
-      rebounds: parseInt(getStatValue('trb')) || 0,
-      assists: parseInt(getStatValue('ast')) || 0,
-      minutes: getStatValue('mp') || '0:00',
-    });
+  for (const d of datesToTry) {
+    const nbaDate = toNBAScheduleDate(d);
+    const games = await getGamesFromSchedule(nbaDate);
+    const match = games.find(g => g.homeTeam.teamId === homeTeamId);
+    if (match) return match.gameId;
   }
+  return null;
+}
 
-  return players;
+function parseNBABoxscorePlayers(teamData: any): BBRBoxscorePlayer[] {
+  if (!teamData?.players) return [];
+  const abbr = teamData.teamTricode || '';
+
+  return teamData.players
+    .filter((p: any) => p.status === 'ACTIVE' && p.statistics)
+    .map((p: any) => {
+      const stats = p.statistics;
+      const mins = stats.minutes || stats.minutesCalculated || 'PT0M';
+      const minStr = mins.replace('PT', '').replace('M', ':').replace('S', '');
+      return {
+        playerId: String(p.personId),
+        playerName: p.name || `${p.firstName} ${p.familyName}`,
+        teamAbbr: abbr,
+        points: stats.points ?? 0,
+        rebounds: stats.reboundsTotal ?? 0,
+        assists: stats.assists ?? 0,
+        minutes: minStr,
+      } as BBRBoxscorePlayer;
+    });
 }
 
 // ==================== 统一数据模型 ====================
@@ -725,8 +877,8 @@ export async function getGamePlayers(game: Game): Promise<{ homePlayers: Player[
   }
   
   if (game.status === 'Final') {
-    // 已结束比赛：从BBR获取Boxscore（使用NBA美东时间日期）
-    const boxscore = await getBBRBoxscore(game.gameDate, game.homeTeamId, game.nbaGameDate);
+    // 已结束比赛：从NBA CDN获取Boxscore
+    const boxscore = await getBBRBoxscore(game.gameDate, game.homeTeamId, game.nbaGameDate, game.gameId);
     
     if (boxscore) {
       for (const p of boxscore.homePlayers) {

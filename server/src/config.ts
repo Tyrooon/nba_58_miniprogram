@@ -12,6 +12,7 @@ export const config = {
   // FIX: Current date is Nov 2025, so the season is 2025-2026.
   // In NBA API convention, "2025" usually means 2025-26 season.
   currentSeason: Number(process.env.CURRENT_SEASON ?? 2025),
+  sportsBlazeApiKey: process.env.SPORTSBLAZE_API_KEY ?? 'sbftnbre0i5d48q8yj15jto',
   syncCron: process.env.SYNC_CRON ?? '5 4 * * *',
   scoreCron: process.env.SCORE_CRON ?? '0 14 * * *',
   seasonStatsCron: process.env.SEASON_STATS_CRON ?? '0 * * * *',

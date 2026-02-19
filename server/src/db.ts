@@ -202,6 +202,34 @@ const bootstrap = async () => {
           game_date TEXT PRIMARY KEY,
           processed_at TEXT DEFAULT (datetime('now'))
         );
+
+        CREATE TABLE IF NOT EXISTS player_game_log (
+          player_sb_id TEXT NOT NULL,
+          game_date TEXT NOT NULL,
+          player_name TEXT NOT NULL,
+          team_name TEXT DEFAULT '',
+          team_id INTEGER DEFAULT 0,
+          team_abbr TEXT DEFAULT '',
+          position TEXT DEFAULT '',
+          points INTEGER DEFAULT 0,
+          rebounds INTEGER DEFAULT 0,
+          assists INTEGER DEFAULT 0,
+          minutes INTEGER DEFAULT 0,
+          season INTEGER NOT NULL,
+          PRIMARY KEY(player_sb_id, game_date)
+        );
+
+        CREATE TABLE IF NOT EXISTS sb_fetch_log (
+          date_key TEXT NOT NULL,
+          season INTEGER NOT NULL,
+          games_count INTEGER DEFAULT 0,
+          players_count INTEGER DEFAULT 0,
+          fetched_at TEXT DEFAULT (datetime('now')),
+          PRIMARY KEY(date_key, season)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_player_game_log_season ON player_game_log(season);
+        CREATE INDEX IF NOT EXISTS idx_player_game_log_player ON player_game_log(player_sb_id, season);
         
         CREATE INDEX IF NOT EXISTS idx_games_date ON games(game_date);
     `);
@@ -218,6 +246,14 @@ const bootstrap = async () => {
     } catch (e) { /* ignore if exists */ }
     try {
       await db.exec(`ALTER TABLE daily_players ADD COLUMN stats_status TEXT DEFAULT 'ACTIVE';`);
+    } catch (e) { /* ignore if exists */ }
+
+    // Auth columns migration
+    try {
+      await db.exec(`ALTER TABLE users ADD COLUMN username TEXT UNIQUE;`);
+    } catch (e) { /* ignore if exists */ }
+    try {
+      await db.exec(`ALTER TABLE users ADD COLUMN password_hash TEXT;`);
     } catch (e) { /* ignore if exists */ }
 
     // Frozen players play_mode migration

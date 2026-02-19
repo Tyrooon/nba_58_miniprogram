@@ -1,4 +1,5 @@
 import db from '../db';
+import bcrypt from 'bcryptjs';
 import { config } from '../config';
 import { addDays } from '../utils/date';
 
@@ -8,12 +9,69 @@ interface UpsertUserInput {
   avatarUrl?: string;
 }
 
-/**
- * 生成随机昵称
- */
+const USERNAME_RE = /^[A-Za-z0-9_]{3,20}$/;
+
 const generateRandomNickname = (): string => {
-  const randomNum = Math.floor(1000 + Math.random() * 9000); // 1000-9999
+  const randomNum = Math.floor(1000 + Math.random() * 9000);
   return `球迷${randomNum}`;
+};
+
+export const registerUser = async (username: string, password: string, nickname?: string) => {
+  if (!USERNAME_RE.test(username)) {
+    throw new Error('用户ID仅支持3-20位英文字母、数字、下划线');
+  }
+  if (!password || password.length < 6) {
+    throw new Error('密码至少6位');
+  }
+
+  const existing = await db.prepare(`SELECT id FROM users WHERE username = ?`).get([username]);
+  if (existing) {
+    throw new Error('该用户ID已被注册');
+  }
+
+  const displayName = nickname?.trim() || username;
+  const passwordHash = await bcrypt.hash(password, 10);
+  const openid = `web_${username}`;
+
+  const result = await db.prepare(
+    `INSERT INTO users (openid, username, password_hash, nickname) VALUES (@openid, @username, @passwordHash, @nickname)`
+  ).run({ openid, username, passwordHash, nickname: displayName }) as any;
+
+  const user = await db.prepare(`SELECT * FROM users WHERE id = ?`).get([result.lastInsertRowid]) as any;
+  return {
+    id: user.id,
+    username: user.username,
+    nickname: user.nickname,
+    avatarUrl: user.avatar_url,
+    totalScore: user.total_score,
+  };
+};
+
+export const authLogin = async (username: string, password: string) => {
+  if (!username || !password) {
+    throw new Error('请输入用户ID和密码');
+  }
+
+  const user = await db.prepare(`SELECT * FROM users WHERE username = ?`).get([username]) as any;
+  if (!user) {
+    throw new Error('用户ID不存在');
+  }
+  if (!user.password_hash) {
+    throw new Error('该用户尚未设置密码，请联系管理员');
+  }
+
+  const match = await bcrypt.compare(password, user.password_hash);
+  if (!match) {
+    throw new Error('密码错误');
+  }
+
+  return {
+    id: user.id,
+    username: user.username,
+    nickname: user.nickname,
+    avatarUrl: user.avatar_url,
+    totalScore: user.total_score,
+  };
 };
 
 export const upsertUser = async (payload: UpsertUserInput) => {

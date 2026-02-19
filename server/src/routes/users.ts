@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { upsertUser, getUserById, getUserFrozenPlayers, updateUserProfile, getLeaderboard, getAllUsers } from '../services/userService';
+import { upsertUser, getUserById, getUserFrozenPlayers, updateUserProfile, getLeaderboard, getAllUsers, registerUser, authLogin } from '../services/userService';
 import { paths } from '../config';
 
 const router = Router();
@@ -28,6 +28,29 @@ const avatarUpload = multer({
       cb(new Error('仅支持 jpg/png/gif/webp 格式的图片'));
     }
   },
+});
+
+router.post('/register', async (req, res) => {
+  try {
+    const { username, password, confirmPassword, nickname } = req.body ?? {};
+    if (password !== confirmPassword) {
+      return res.status(400).json({ message: '两次输入的密码不一致' });
+    }
+    const user = await registerUser(username, password, nickname);
+    res.json(user);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || '注册失败' });
+  }
+});
+
+router.post('/auth-login', async (req, res) => {
+  try {
+    const { username, password } = req.body ?? {};
+    const user = await authLogin(username, password);
+    res.json(user);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || '登录失败' });
+  }
 });
 
 router.post('/login', async (req, res) => {
