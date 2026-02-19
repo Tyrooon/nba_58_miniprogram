@@ -420,6 +420,107 @@ export const syncDailyData = async (targetDate?: string) => {
 };
 
 /**
+ * 轻量同步单日数据：仅拉取指定日期的赛程+球员，用于前端刷新按钮
+ */
+export const syncSingleDate = async (dateKey: string) => {
+  console.log(`[sync-single] ${dateKey}`);
+
+  const games = await getGamesInRange(dateKey, dateKey);
+  if (games.length === 0) {
+    return { date: dateKey, games: 0, players: 0 };
+  }
+
+  // UPSERT games
+  const insertGameStmt = db.prepare(`
+    INSERT INTO games (external_id, game_date, status, tipoff, home_team_id, home_team_name, visitor_team_id, visitor_team_name, home_score, visitor_score, season)
+    VALUES (@external_id, @game_date, @status, @tipoff, @home_team_id, @home_team_name, @visitor_team_id, @visitor_team_name, @home_score, @visitor_score, @season)
+    ON CONFLICT(external_id) DO UPDATE SET
+      status = excluded.status,
+      home_score = excluded.home_score,
+      visitor_score = excluded.visitor_score
+  `);
+
+  for (const game of games) {
+    await insertGameStmt.run({
+      external_id: game.gameId,
+      game_date: game.gameDate,
+      status: game.status,
+      tipoff: game.gameTimeBeijing,
+      home_team_id: game.homeTeamId,
+      home_team_name: game.homeTeamNameCn,
+      visitor_team_id: game.awayTeamId,
+      visitor_team_name: game.awayTeamNameCn,
+      home_score: game.homeScore,
+      visitor_score: game.awayScore,
+      season: config.currentSeason,
+    });
+  }
+
+  // 清理该日的 daily_players 以便重新写入
+  await db.prepare('DELETE FROM daily_players WHERE game_date = ?').run([dateKey]);
+
+  const allPlayerStats = await getBBRAllPlayerStats();
+  const playersByTeam = new Map<number, typeof allPlayerStats>();
+  for (const player of allPlayerStats) {
+    if (!playersByTeam.has(player.teamId)) playersByTeam.set(player.teamId, []);
+    playersByTeam.get(player.teamId)!.push(player);
+  }
+
+  const insertPlayerStmt = db.prepare(`
+    INSERT INTO daily_players (game_date, team_id, team_name, player_id, player_name, position, season_avg, stats_points, stats_rebounds, stats_assists, stats_status)
+    VALUES (@game_date, @team_id, @team_name, @player_id, @player_name, @position, @season_avg, @stats_points, @stats_rebounds, @stats_assists, @stats_status)
+    ON CONFLICT(game_date, player_id) DO UPDATE SET
+      team_id = excluded.team_id, team_name = excluded.team_name, position = excluded.position,
+      season_avg = excluded.season_avg, stats_points = excluded.stats_points,
+      stats_rebounds = excluded.stats_rebounds, stats_assists = excluded.stats_assists, stats_status = excluded.stats_status
+  `);
+
+  let totalPlayers = 0;
+  for (const game of games) {
+    let boxscoreData: Map<string, { points: number; rebounds: number; assists: number }> | null = null;
+    if (game.status === 'Final') {
+      try {
+        const boxscoreResult = await getBBRBoxscore(game.gameDate, game.homeTeamId, game.nbaGameDate);
+        if (boxscoreResult) {
+          boxscoreData = new Map();
+          for (const p of [...boxscoreResult.homePlayers, ...boxscoreResult.awayPlayers]) {
+            boxscoreData.set(p.playerName.toLowerCase(), { points: p.points, rebounds: p.rebounds, assists: p.assists });
+          }
+        }
+      } catch (_) {}
+    }
+
+    const sides = [
+      { players: playersByTeam.get(game.homeTeamId) || [], teamId: game.homeTeamId, teamName: game.homeTeamNameCn },
+      { players: playersByTeam.get(game.awayTeamId) || [], teamId: game.awayTeamId, teamName: game.awayTeamNameCn },
+    ];
+    const existingNames = new Set<string>();
+
+    for (const side of sides) {
+      for (const player of side.players) {
+        const bs = boxscoreData?.get(player.playerName.toLowerCase());
+        await insertPlayerStmt.run({
+          game_date: game.gameDate, team_id: side.teamId, team_name: side.teamName,
+          player_id: hashString(player.playerId), player_name: player.playerName,
+          position: player.position || '', season_avg: player.pointsPerGame,
+          stats_points: bs?.points || 0, stats_rebounds: bs?.rebounds || 0, stats_assists: bs?.assists || 0,
+          stats_status: game.status === 'Final' ? 'played' : 'scheduled',
+        });
+        existingNames.add(player.playerName.toLowerCase());
+        totalPlayers++;
+      }
+    }
+
+  }
+
+  // 修正 season_avg
+  try { await fixSeasonAvg(dateKey, dateKey); } catch (_) {}
+
+  console.log(`[sync-single] ${dateKey}: ${games.length} games, ${totalPlayers} players`);
+  return { date: dateKey, games: games.length, players: totalPlayers };
+};
+
+/**
  * 快速刷新当天比赛比分（仅当天）
  */
 export const refreshTodayScores = async (targetDate?: string) => {

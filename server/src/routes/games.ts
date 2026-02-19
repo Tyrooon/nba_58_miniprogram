@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { syncDailyData, refreshTodayScores, getGamesWithPlayers, getGamesByDateRange, getNextGameDayPlayers, getUpcomingGameDates, shouldSync } from '../services/gameService';
+import { syncDailyData, syncSingleDate, refreshTodayScores, getGamesWithPlayers, getGamesByDateRange, getNextGameDayPlayers, getUpcomingGameDates, shouldSync } from '../services/gameService';
 import { toDateKey } from '../utils/date';
 
 const router = Router();
@@ -58,14 +58,19 @@ router.get('/upcoming-dates', async (req, res, next) => {
 
 router.post('/sync', async (req, res, next) => {
   try {
+    const date = req.body?.date;
+    if (date) {
+      const summary = await syncSingleDate(date);
+      return res.json(summary);
+    }
     const force = req.query.force === '1' || req.body?.force;
-    if (!force && !req.body?.date) {
+    if (!force) {
       const check = await shouldSync();
       if (!check.shouldSync) {
         return res.json({ skipped: true, reason: check.reason });
       }
     }
-    const summary = await syncDailyData(req.body?.date);
+    const summary = await syncDailyData();
     res.json(summary);
   } catch (error) {
     next(error);
