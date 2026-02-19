@@ -117,7 +117,7 @@ const sbBoxscoreCache = new Map<string, { data: any; fetchedAt: number }>();
 const SB_BOXSCORE_CACHE_TTL = 10 * 60 * 1000;
 const SB_EMPTY_CACHE_TTL = 60 * 60 * 1000;
 let lastSBRequestAt = 0;
-const SB_MIN_INTERVAL = 1200;
+const SB_MIN_INTERVAL = 6000;
 let sbRateLimitedUntil = 0;
 
 async function fetchSBBoxscores(dateStr: string): Promise<any | null> {
@@ -146,8 +146,8 @@ async function fetchSBBoxscores(dateStr: string): Promise<any | null> {
       return empty;
     }
     if (res.status === 429) {
-      console.warn(`SportsBlaze rate-limited (429) for ${dateStr}, backing off 120s`);
-      sbRateLimitedUntil = Date.now() + 120_000;
+      console.warn(`SportsBlaze rate-limited (429) for ${dateStr}, backing off 60s`);
+      sbRateLimitedUntil = Date.now() + 60_000;
       return cached?.data || null;
     }
     if (!res.ok) {

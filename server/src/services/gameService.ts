@@ -1,13 +1,13 @@
 import db from '../db';
 import { config } from '../config';
+import fetch from 'node-fetch';
 
-// 字符串哈希函数
 function hashString(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
+    hash = hash & hash;
   }
   return Math.abs(hash);
 }
@@ -28,6 +28,182 @@ import {
   Player,
 } from './hybridNbaService';
 
+// ==================== SportsBlaze 增量抓取 ====================
+
+const SB_BASE = 'https://api.sportsblaze.com/nba/v1';
+const SB_TEAM_NAME_TO_ID: Record<string, number> = {
+  'Atlanta Hawks': 1610612737, 'Boston Celtics': 1610612738,
+  'Brooklyn Nets': 1610612751, 'Charlotte Hornets': 1610612766,
+  'Chicago Bulls': 1610612741, 'Cleveland Cavaliers': 1610612739,
+  'Dallas Mavericks': 1610612742, 'Denver Nuggets': 1610612743,
+  'Detroit Pistons': 1610612765, 'Golden State Warriors': 1610612744,
+  'Houston Rockets': 1610612745, 'Indiana Pacers': 1610612754,
+  'LA Clippers': 1610612746, 'Los Angeles Clippers': 1610612746,
+  'Los Angeles Lakers': 1610612747, 'Memphis Grizzlies': 1610612763,
+  'Miami Heat': 1610612748, 'Milwaukee Bucks': 1610612749,
+  'Minnesota Timberwolves': 1610612750, 'New Orleans Pelicans': 1610612740,
+  'New York Knicks': 1610612752, 'Oklahoma City Thunder': 1610612760,
+  'Orlando Magic': 1610612753, 'Philadelphia 76ers': 1610612755,
+  'Phoenix Suns': 1610612756, 'Portland Trail Blazers': 1610612757,
+  'Sacramento Kings': 1610612758, 'San Antonio Spurs': 1610612759,
+  'Toronto Raptors': 1610612761, 'Utah Jazz': 1610612762,
+  'Washington Wizards': 1610612764,
+};
+const SB_TEAM_NAME_TO_ABBR: Record<string, string> = {
+  'Atlanta Hawks': 'ATL', 'Boston Celtics': 'BOS', 'Brooklyn Nets': 'BRK',
+  'Charlotte Hornets': 'CHO', 'Chicago Bulls': 'CHI', 'Cleveland Cavaliers': 'CLE',
+  'Dallas Mavericks': 'DAL', 'Denver Nuggets': 'DEN', 'Detroit Pistons': 'DET',
+  'Golden State Warriors': 'GSW', 'Houston Rockets': 'HOU', 'Indiana Pacers': 'IND',
+  'LA Clippers': 'LAC', 'Los Angeles Clippers': 'LAC', 'Los Angeles Lakers': 'LAL',
+  'Memphis Grizzlies': 'MEM', 'Miami Heat': 'MIA', 'Milwaukee Bucks': 'MIL',
+  'Minnesota Timberwolves': 'MIN', 'New Orleans Pelicans': 'NOP',
+  'New York Knicks': 'NYK', 'Oklahoma City Thunder': 'OKC',
+  'Orlando Magic': 'ORL', 'Philadelphia 76ers': 'PHI', 'Phoenix Suns': 'PHO',
+  'Portland Trail Blazers': 'POR', 'Sacramento Kings': 'SAC',
+  'San Antonio Spurs': 'SAS', 'Toronto Raptors': 'TOR', 'Utah Jazz': 'UTA',
+  'Washington Wizards': 'WAS',
+};
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/**
+ * 增量更新 player_game_log：只抓取 sb_fetch_log 中缺失的日期
+ */
+async function updateGameLogIncremental() {
+  const season = config.currentSeason;
+  const yesterday = addDays(getTodayBeijing(), -1);
+
+  const latestRow = await db.prepare(
+    `SELECT MAX(date_key) as latest FROM sb_fetch_log WHERE season = ?`
+  ).get([season]) as any;
+  const latestDate = latestRow?.latest || `${season}-10-20`;
+
+  // 找出缺失的日期
+  const missing: string[] = [];
+  let cur = addDays(latestDate, 1);
+  while (cur <= yesterday) {
+    const exists = await db.prepare(
+      `SELECT 1 FROM sb_fetch_log WHERE date_key = ? AND season = ?`
+    ).get([cur, season]);
+    if (!exists) missing.push(cur);
+    cur = addDays(cur, 1);
+  }
+
+  if (missing.length === 0) return;
+  console.log(`[game-log] ${missing.length} new dates to fetch: ${missing[0]} ~ ${missing[missing.length - 1]}`);
+
+  for (const dateStr of missing) {
+    await sleep(6000);
+    try {
+      const url = `${SB_BASE}/boxscores/daily/${dateStr}.json?key=${config.sportsBlazeApiKey}`;
+      const res = await fetch(url);
+
+      if (res.status === 429) {
+        console.warn(`[game-log] 429 for ${dateStr}, stopping incremental update`);
+        break;
+      }
+      if (res.status === 404 || !res.ok) {
+        await db.prepare(
+          `INSERT INTO sb_fetch_log (date_key, season, games_count, players_count) VALUES (?, ?, 0, 0)
+           ON CONFLICT(date_key, season) DO UPDATE SET games_count=0, players_count=0, fetched_at=datetime('now')`
+        ).run([dateStr, season]);
+        console.log(`[game-log] ${dateStr}: no data`);
+        continue;
+      }
+
+      const data = await res.json() as any;
+      if (data?.error || !data?.games) {
+        await db.prepare(
+          `INSERT INTO sb_fetch_log (date_key, season, games_count, players_count) VALUES (?, ?, 0, 0)
+           ON CONFLICT(date_key, season) DO UPDATE SET games_count=0, players_count=0, fetched_at=datetime('now')`
+        ).run([dateStr, season]);
+        continue;
+      }
+
+      let gamesCount = 0, playersCount = 0;
+      const upsertStmt = db.prepare(`
+        INSERT INTO player_game_log (player_sb_id, game_date, player_name, team_name, team_id, team_abbr, position, points, rebounds, assists, minutes, season)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(player_sb_id, game_date) DO UPDATE SET
+          player_name=excluded.player_name, team_name=excluded.team_name, team_id=excluded.team_id,
+          team_abbr=excluded.team_abbr, position=CASE WHEN excluded.position!='' THEN excluded.position ELSE player_game_log.position END,
+          points=excluded.points, rebounds=excluded.rebounds, assists=excluded.assists, minutes=excluded.minutes
+      `);
+
+      for (const game of data.games) {
+        if (game.status !== 'Final') continue;
+        gamesCount++;
+        const processRoster = async (roster: any[], teamName: string) => {
+          if (!roster || !teamName) return;
+          const teamId = SB_TEAM_NAME_TO_ID[teamName] || 0;
+          const teamAbbr = SB_TEAM_NAME_TO_ABBR[teamName] || '';
+          for (const p of roster) {
+            if (!p.id || !p.name || !p.played || !p.stats) continue;
+            await upsertStmt.run([p.id, dateStr, p.name, teamName, teamId, teamAbbr,
+              p.position || '', p.stats.points ?? 0, p.stats.rebounds ?? 0,
+              p.stats.assists ?? 0, p.stats.minutes ?? 0, season]);
+            playersCount++;
+          }
+        };
+        await processRoster(game.rosters?.away, game.teams?.away?.name);
+        await processRoster(game.rosters?.home, game.teams?.home?.name);
+      }
+
+      await db.prepare(
+        `INSERT INTO sb_fetch_log (date_key, season, games_count, players_count) VALUES (?, ?, ?, ?)
+         ON CONFLICT(date_key, season) DO UPDATE SET games_count=excluded.games_count, players_count=excluded.players_count, fetched_at=datetime('now')`
+      ).run([dateStr, season, gamesCount, playersCount]);
+
+      if (gamesCount > 0) console.log(`[game-log] ${dateStr}: ${gamesCount} games, ${playersCount} players`);
+    } catch (e: any) {
+      console.error(`[game-log] ${dateStr}: network error - ${e.message}`);
+      break;
+    }
+  }
+}
+
+/**
+ * 用 player_game_log 全赛季数据批量修正 daily_players.season_avg
+ */
+async function fixSeasonAvg(startDate: string, endDate: string) {
+  const season = config.currentSeason;
+
+  const avgs = await db.prepare(`
+    SELECT a.player_name, b.ppg
+    FROM player_game_log a
+    INNER JOIN (
+      SELECT player_sb_id, MAX(game_date) as last_date, ROUND(AVG(points), 1) as ppg
+      FROM player_game_log WHERE season = ?
+      GROUP BY player_sb_id
+    ) b ON a.player_sb_id = b.player_sb_id AND a.game_date = b.last_date
+    WHERE a.season = ?
+  `).all([season, season]) as any[];
+
+  if (avgs.length === 0) return;
+
+  const avgMap = new Map<string, number>();
+  for (const r of avgs) {
+    avgMap.set(r.player_name.toLowerCase(), r.ppg);
+  }
+
+  const players = await db.prepare(
+    `SELECT DISTINCT player_name FROM daily_players WHERE game_date >= ? AND game_date <= ?`
+  ).all([startDate, endDate]) as any[];
+
+  let updated = 0;
+  for (const p of players) {
+    const ppg = avgMap.get(p.player_name.toLowerCase());
+    if (ppg !== undefined) {
+      await db.prepare(
+        `UPDATE daily_players SET season_avg = ? WHERE player_name = ? AND game_date >= ? AND game_date <= ?`
+      ).run([ppg, p.player_name, startDate, endDate]);
+      updated++;
+    }
+  }
+
+  if (updated > 0) console.log(`[fix-avg] Updated season_avg for ${updated} players`);
+}
+
 // ==================== 数据库操作 ====================
 
 /**
@@ -36,8 +212,14 @@ import {
 export const syncDailyData = async (targetDate?: string) => {
   const dateKey = targetDate || getTodayBeijing();
   console.log(`Syncing data for ${dateKey}...`);
-  
-  // 获取前后7天的赛程（用于展示未来比赛）
+
+  // 增量抓取 player_game_log 中缺失的日期
+  try {
+    await updateGameLogIncremental();
+  } catch (e: any) {
+    console.warn(`[game-log] incremental update failed: ${e.message}`);
+  }
+
   const startDate = addDays(dateKey, -7);
   const endDate = addDays(dateKey, 7);
   
@@ -226,6 +408,14 @@ export const syncDailyData = async (targetDate?: string) => {
   }
 
   console.log(`Synced ${totalGames} games, ${totalPlayers} players (skipped ${skippedGames} games with existing data)`);
+
+  // 用 player_game_log 全赛季数据修正 season_avg
+  try {
+    await fixSeasonAvg(startDate, endDate);
+  } catch (e: any) {
+    console.warn(`[fix-avg] failed: ${e.message}`);
+  }
+
   return { games: totalGames, players: totalPlayers };
 };
 
@@ -644,4 +834,80 @@ export const setLockInfo = async (playMode: string, gameDate: string, isLocked: 
       locked_at = excluded.locked_at
   `);
   await stmt.run([playMode, gameDate, isLocked ? 1 : 0, lockedAt || null]);
+};
+
+// ==================== 智能刷新检查 ====================
+
+/**
+ * 检查是否需要同步：
+ * 1. 数据库里最新的 daily_players 日期早于今天
+ * 2. 今天有比赛且第一场已经开赛
+ * 返回 { shouldSync, reason }
+ */
+export const shouldSync = async (): Promise<{ shouldSync: boolean; reason: string }> => {
+  const today = getTodayBeijing();
+
+  // 检查 daily_players 最新日期
+  const latestRow = await db.prepare(
+    `SELECT MAX(game_date) as latest FROM daily_players WHERE stats_status = 'played'`
+  ).get() as any;
+  const latestDate = latestRow?.latest;
+
+  // 如果没有任何数据，必须同步
+  if (!latestDate) {
+    return { shouldSync: true, reason: 'no data in database' };
+  }
+
+  // 检查 player_game_log 最新抓取日期
+  const latestFetchRow = await db.prepare(
+    `SELECT MAX(date_key) as latest FROM sb_fetch_log WHERE games_count > 0`
+  ).get() as any;
+  const latestFetchDate = latestFetchRow?.latest;
+
+  // 如果最新抓取日期至少是昨天，说明数据还比较新
+  const yesterday = addDays(today, -1);
+  if (latestFetchDate && latestFetchDate >= yesterday) {
+    // 数据已经是最新的，检查今天是否有新比赛结束
+    const unfinishedToday = await db.prepare(
+      `SELECT COUNT(*) as c FROM games WHERE game_date = ? AND status != 'Final'`
+    ).get([today]) as any;
+
+    if (unfinishedToday?.c === 0) {
+      // 今天没有正在进行的比赛
+      const todayGames = await db.prepare(
+        `SELECT COUNT(*) as c FROM games WHERE game_date = ?`
+      ).get([today]) as any;
+      if (todayGames?.c > 0) {
+        return { shouldSync: false, reason: `today's ${todayGames.c} games all finished, data up to date` };
+      }
+    }
+  }
+
+  // 检查今天是否有比赛
+  const todayGames = await db.prepare(
+    `SELECT tipoff FROM games WHERE game_date = ? ORDER BY tipoff ASC LIMIT 1`
+  ).get([today]) as any;
+
+  if (!todayGames?.tipoff) {
+    // DB 里没有今天的比赛信息 —— 可能赛程还没更新
+    if (latestFetchDate && latestFetchDate < yesterday) {
+      return { shouldSync: true, reason: `game log behind (latest: ${latestFetchDate}), need update` };
+    }
+    return { shouldSync: false, reason: 'no games scheduled today' };
+  }
+
+  // 今天有比赛，检查第一场是否已经开赛
+  const firstTipoff = todayGames.tipoff; // 北京时间 "HH:MM" 或 "YYYY-MM-DD HH:MM"
+  const now = new Date();
+  const beijingNow = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const currentHHMM = `${String(beijingNow.getUTCHours()).padStart(2, '0')}:${String(beijingNow.getUTCMinutes()).padStart(2, '0')}`;
+
+  // tipoff 可能是 "08:00" (HH:MM) 格式的北京时间
+  const tipoffTime = firstTipoff.includes(' ') ? firstTipoff.split(' ')[1] : firstTipoff;
+
+  if (currentHHMM < tipoffTime) {
+    return { shouldSync: false, reason: `first game at ${tipoffTime} BJT, hasn't started yet (now: ${currentHHMM})` };
+  }
+
+  return { shouldSync: true, reason: `first game started at ${tipoffTime} BJT, time to sync` };
 };

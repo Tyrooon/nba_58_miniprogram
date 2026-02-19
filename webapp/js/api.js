@@ -160,6 +160,10 @@ const API = {
   async getSelectionHistory(userId, limit = 50) {
     return this.request(`/selections/history?userId=${userId}&limit=${limit}`);
   },
+
+  async viewUserSelections(userId, limit = 50) {
+    return this.request(`/selections/view?userId=${userId}&limit=${limit}`);
+  },
   
   // Leaderboard
   async getLeaderboard(scope = 'overall') {

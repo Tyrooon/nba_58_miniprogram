@@ -192,6 +192,30 @@ export const getSelectionHistory = async (userId: number, limit = 30) =>
     )
     .all([userId, limit]);
 
+export const getUserSelectionsForView = async (userId: number, limit = 30) => {
+  const rows = await db.prepare(`
+    SELECT s.game_date, s.play_mode, s.player_name, s.team_name,
+           s.player_season_avg, s.player_actual_score,
+           s.base_score, s.bonus_score, s.total_score
+    FROM selections s
+    WHERE s.user_id = ?
+    ORDER BY s.game_date DESC, s.play_mode ASC
+    LIMIT ?
+  `).all([userId, limit]) as any[];
+
+  return rows.map((r: any) => ({
+    gameDate: r.game_date,
+    playMode: r.play_mode,
+    playerName: r.player_name,
+    teamName: r.team_name,
+    seasonAvg: r.player_season_avg,
+    actualScore: r.player_actual_score,
+    baseScore: r.base_score,
+    bonusScore: r.bonus_score,
+    totalScore: r.total_score,
+  }));
+};
+
 export const getSelectionsByDate = async (date: string) =>
   await db.prepare(`SELECT * FROM selections WHERE game_date = ?`).all([date]);
 

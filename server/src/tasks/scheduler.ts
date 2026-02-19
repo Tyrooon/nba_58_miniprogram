@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { config } from '../config';
-import { syncDailyData } from '../services/gameService';
+import { syncDailyData, shouldSync } from '../services/gameService';
 import { computeDayScores } from '../services/scoringService';
 import { purgeExpiredFrozen } from '../services/userService';
 import { processSeasonStats } from '../services/seasonStatsService';
@@ -8,6 +8,12 @@ import { processSeasonStats } from '../services/seasonStatsService';
 export const bootstrapSchedulers = () => {
   cron.schedule(config.syncCron, async () => {
     try {
+      const check = await shouldSync();
+      if (!check.shouldSync) {
+        console.info(`[cron] 跳过同步: ${check.reason}`);
+        return;
+      }
+      console.info(`[cron] 开始同步: ${check.reason}`);
       await syncDailyData();
       await purgeExpiredFrozen();
       console.info(`[cron] 同步今日赛程/球员完成`);

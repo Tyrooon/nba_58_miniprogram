@@ -85,6 +85,13 @@ const App = {
       leaderboardList: document.getElementById('leaderboardList'),
       logoutBtn: document.getElementById('logoutBtn'),
       
+      // User Picks Modal
+      userPicksModal: document.getElementById('userPicksModal'),
+      userPicksOverlay: document.getElementById('userPicksOverlay'),
+      userPicksClose: document.getElementById('userPicksClose'),
+      userPicksTitle: document.getElementById('userPicksTitle'),
+      userPicksBody: document.getElementById('userPicksBody'),
+      
       // Auth
       authModal: document.getElementById('authModal'),
       authTabLogin: document.getElementById('authTabLogin'),
@@ -145,6 +152,10 @@ const App = {
     this.elements.historyBackBtn.addEventListener('click', () => this.hideHistoryPage());
     this.elements.logoutBtn.addEventListener('click', () => this.handleLogout());
     this.elements.leaderboardBackBtn.addEventListener('click', () => this.hideLeaderboardPage());
+
+    // User picks modal
+    this.elements.userPicksOverlay.addEventListener('click', () => this.hideUserPicks());
+    this.elements.userPicksClose.addEventListener('click', () => this.hideUserPicks());
 
     // Profile edit
     this.elements.editNickname.addEventListener('click', () => this.showNicknameModal());
@@ -1139,7 +1150,7 @@ const App = {
           const rankClass = rank <= 3 ? `top-${rank}` : 'normal';
           
           html += `
-            <div class="leaderboard-item ${isCurrentUser ? 'current-user' : ''}">
+            <div class="leaderboard-item ${isCurrentUser ? 'current-user' : ''}" data-user-id="${user.id}" data-user-name="${user.nickname || '球迷'}">
               <div class="rank-num ${rankClass}">${rank}</div>
               <img class="leaderboard-avatar" src="${user.avatarUrl || 'https://img.yzcdn.cn/vant/cat.jpeg'}" alt="${user.nickname}">
               <div class="leaderboard-info">
@@ -1150,6 +1161,14 @@ const App = {
           `;
         });
         this.elements.leaderboardList.innerHTML = html;
+
+        this.elements.leaderboardList.querySelectorAll('.leaderboard-item').forEach(el => {
+          el.addEventListener('click', () => {
+            const userId = el.dataset.userId;
+            const userName = el.dataset.userName;
+            if (userId) this.showUserPicks(Number(userId), userName);
+          });
+        });
       } else {
         this.elements.leaderboardList.innerHTML = '<div class="no-players">暂无数据</div>';
       }
@@ -1157,6 +1176,64 @@ const App = {
       console.error('Load leaderboard error:', error);
       this.elements.leaderboardList.innerHTML = '<div class="no-players">加载失败</div>';
     }
+  },
+
+  async showUserPicks(userId, userName) {
+    this.elements.userPicksModal.style.display = 'block';
+    this.elements.userPicksTitle.textContent = `${userName} 的选人记录`;
+    this.elements.userPicksBody.innerHTML = '<div class="loading-container"><div class="spinner"></div></div>';
+
+    try {
+      const picks = await API.viewUserSelections(userId, 50);
+      if (!picks || picks.length === 0) {
+        this.elements.userPicksBody.innerHTML = '<div class="picks-empty">暂无选人记录</div>';
+        return;
+      }
+
+      const modeNames = { 1: '常规', 2: '正58', 3: '负58' };
+      const grouped = {};
+      picks.forEach(p => {
+        if (!grouped[p.gameDate]) grouped[p.gameDate] = [];
+        grouped[p.gameDate].push(p);
+      });
+
+      let html = '';
+      Object.keys(grouped).sort().reverse().forEach(date => {
+        html += `<div class="picks-date-group">`;
+        html += `<div class="picks-date-label">${date}</div>`;
+        grouped[date].forEach(p => {
+          const hasResult = p.actualScore !== null && p.actualScore !== undefined;
+          const scoreVal = hasResult ? (p.totalScore || 0) : null;
+          const scoreClass = scoreVal === null ? 'pending' : (scoreVal >= 0 ? 'positive' : 'negative');
+          const scoreText = scoreVal === null ? '待结算' : (scoreVal >= 0 ? `+${scoreVal}` : `${scoreVal}`);
+          const actualText = hasResult ? `实际 ${p.actualScore} 分` : '';
+          const avgText = p.seasonAvg ? `均 ${p.seasonAvg}` : '';
+          html += `
+            <div class="picks-row">
+              <span class="picks-mode-tag mode-${p.playMode}">${modeNames[p.playMode] || '?'}</span>
+              <div class="picks-player">
+                <div class="picks-player-name">${p.playerName}</div>
+                <div class="picks-player-team">${p.teamName || ''} ${avgText}</div>
+              </div>
+              <div class="picks-scores">
+                <div class="picks-actual ${scoreClass}">${scoreText}</div>
+                ${actualText ? `<div class="picks-detail">${actualText}</div>` : ''}
+              </div>
+            </div>
+          `;
+        });
+        html += `</div>`;
+      });
+
+      this.elements.userPicksBody.innerHTML = html;
+    } catch (error) {
+      console.error('Load user picks error:', error);
+      this.elements.userPicksBody.innerHTML = '<div class="picks-empty">加载失败</div>';
+    }
+  },
+
+  hideUserPicks() {
+    this.elements.userPicksModal.style.display = 'none';
   },
 
   // Utilities

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createSelection, deleteSelection, getCurrentSelectionSummary, getSelectionHistory } from '../services/selectionService';
+import { createSelection, deleteSelection, getCurrentSelectionSummary, getSelectionHistory, getUserSelectionsForView } from '../services/selectionService';
 
 const router = Router();
 
@@ -44,6 +44,20 @@ router.get('/history', async (req, res, next) => {
       return res.status(400).json({ message: 'userId必填' });
     }
     const data = await getSelectionHistory(userId, limit);
+    res.json(data);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/view', async (req, res, next) => {
+  try {
+    const userId = Number(req.query.userId);
+    const limit = Number(req.query.limit ?? 50);
+    if (!userId) {
+      return res.status(400).json({ message: 'userId必填' });
+    }
+    const data = await getUserSelectionsForView(userId, limit);
     res.json(data);
   } catch (error) {
     next(error);
