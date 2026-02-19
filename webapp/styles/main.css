@@ -396,17 +396,36 @@ html, body {
 
 .team-column-list {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+@media (min-width: 600px) {
+  .team-column-list {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .player-chip {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .p-stat {
+    margin-top: 4px;
+  }
 }
 
 .player-chip {
   background: var(--bg-white);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 8px;
+  padding: 6px 8px;
   cursor: pointer;
   transition: all 0.2s;
+  overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
 }
 
 .player-chip:hover {
@@ -433,10 +452,12 @@ html, body {
 .player-info {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  flex: 1;
 }
 
 .p-name {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
   overflow: hidden;
@@ -452,14 +473,14 @@ html, body {
 .p-avg-inline {
   font-size: 10px;
   color: var(--primary-color);
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .p-stat {
   display: flex;
-  justify-content: space-between;
   align-items: baseline;
-  margin-top: 4px;
+  flex-shrink: 0;
+  gap: 2px;
 }
 
 .p-avg {
@@ -1443,10 +1464,6 @@ html, body {
 
 /* Responsive */
 @media (max-width: 360px) {
-  .team-column-list {
-    grid-template-columns: 1fr;
-  }
-  
   .score-num {
     font-size: 20px;
   }
