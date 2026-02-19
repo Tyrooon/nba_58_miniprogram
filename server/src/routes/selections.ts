@@ -12,7 +12,7 @@ router.post('/', async (req, res, next) => {
     const selection = await createSelection({
       userId: Number(userId),
       playerId: Number(playerId),
-      playMode: Number(playMode),
+      playMode: Number(playMode) as 1 | 2 | 3,
       gameDate,
     });
     res.json(selection);

@@ -7,7 +7,7 @@ export const getOverallLeaderboard = (limit = 50) =>
       `SELECT id as userId, nickname, avatar_url as avatarUrl, total_score as score
        FROM users ORDER BY total_score DESC LIMIT ?`
     )
-    .all(limit);
+    .all([limit]);
 
 export const getDailyLeaderboard = (targetDate?: string, limit = 50) => {
   const dateKey = toDateKey(targetDate);
@@ -21,7 +21,7 @@ export const getDailyLeaderboard = (targetDate?: string, limit = 50) => {
        ORDER BY score DESC
        LIMIT ?`
     )
-    .all(dateKey, limit);
+    .all([dateKey, limit]);
 };
 
 

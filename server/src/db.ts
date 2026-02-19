@@ -24,7 +24,7 @@ class Database {
     const stmt = this.db.prepare(normalizedSql);
     
     return {
-      run: (params: any = {}) => {
+      run: (params: any = {}): Promise<any> => {
         return new Promise((resolve, reject) => {
           stmt.run(this.flattenParams(params), function (err) {
             if (err) reject(err);
@@ -32,7 +32,7 @@ class Database {
           });
         });
       },
-      get: (params: any = {}) => {
+      get: (params: any = {}): Promise<any> => {
         return new Promise((resolve, reject) => {
           stmt.get(this.flattenParams(params), (err, row) => {
             if (err) reject(err);
@@ -40,7 +40,7 @@ class Database {
           });
         });
       },
-      all: (params: any = {}) => {
+      all: (params: any = {}): Promise<any[]> => {
         return new Promise((resolve, reject) => {
           stmt.all(this.flattenParams(params), (err, rows) => {
             if (err) reject(err);
