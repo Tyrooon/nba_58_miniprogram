@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createSelection, getCurrentSelectionSummary, getSelectionHistory } from '../services/selectionService';
+import { createSelection, deleteSelection, getCurrentSelectionSummary, getSelectionHistory } from '../services/selectionService';
 
 const router = Router();
 
@@ -16,6 +16,21 @@ router.post('/', async (req, res, next) => {
       gameDate,
     });
     res.json(selection);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/', async (req, res, next) => {
+  try {
+    const userId = Number(req.body?.userId || req.query.userId);
+    const playMode = Number(req.body?.playMode || req.query.playMode);
+    const gameDate = (req.body?.gameDate || req.query.gameDate) as string | undefined;
+    if (!userId || !playMode) {
+      return res.status(400).json({ message: 'userId/playMode必填' });
+    }
+    const result = await deleteSelection(userId, playMode, gameDate);
+    res.json(result);
   } catch (error) {
     next(error);
   }

@@ -17,6 +17,12 @@ Page({
     loading: true
   },
 
+  goBack() {
+    wx.navigateBack();
+  },
+  goHome() {
+    wx.switchTab({ url: '/pages/index/index' });
+  },
   onLoad(options) {
     const app = getApp();
     const mode = options.mode ? parseInt(options.mode) : (app.globalData.currentModeId || 1);

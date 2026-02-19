@@ -89,6 +89,17 @@ const App = {
       loginNickname: document.getElementById('loginNickname'),
       loginSubmitBtn: document.getElementById('loginSubmitBtn'),
       
+      // Nickname modal
+      nicknameModal: document.getElementById('nicknameModal'),
+      nicknameInput: document.getElementById('nicknameInput'),
+      nicknameCancelBtn: document.getElementById('nicknameCancelBtn'),
+      nicknameConfirmBtn: document.getElementById('nicknameConfirmBtn'),
+      
+      // Avatar
+      avatarFileInput: document.getElementById('avatarFileInput'),
+      avatarWrapper: document.getElementById('avatarWrapper'),
+      editNickname: document.getElementById('editNickname'),
+      
       // Toast
       toast: document.getElementById('toast')
     };
@@ -121,6 +132,16 @@ const App = {
     this.elements.leaderboardMenuItem.addEventListener('click', () => this.showLeaderboardPage());
     this.elements.historyBackBtn.addEventListener('click', () => this.hideHistoryPage());
     this.elements.leaderboardBackBtn.addEventListener('click', () => this.hideLeaderboardPage());
+
+    // Profile edit
+    this.elements.editNickname.addEventListener('click', () => this.showNicknameModal());
+    this.elements.avatarWrapper.addEventListener('click', () => this.elements.avatarFileInput.click());
+    this.elements.avatarFileInput.addEventListener('change', (e) => this.handleAvatarUpload(e));
+    this.elements.nicknameCancelBtn.addEventListener('click', () => this.hideNicknameModal());
+    this.elements.nicknameConfirmBtn.addEventListener('click', () => this.handleNicknameSubmit());
+    this.elements.nicknameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') this.handleNicknameSubmit();
+    });
 
     // Login
     this.elements.loginSubmitBtn.addEventListener('click', () => this.handleLogin());
@@ -572,15 +593,68 @@ const App = {
 
   updateModePanelSelections(res) {
     const modes = res?.modes || {};
-    
-    this.elements.regularSelection.textContent = modes['1'] ? `已选：${modes['1'].player_name}` : '未选择';
-    this.elements.plus58Selection.textContent = modes['2'] ? `已选：${modes['2'].player_name}` : '未选择';
-    this.elements.minus58Selection.textContent = modes['3'] ? `已选：${modes['3'].player_name}` : '未选择';
+    const canModify = res?.canModify !== false;
 
-    if (res?.canModify === false) {
+    this._updateModeRow('regular', 'regularSelection', modes['1'], canModify);
+    this._updateModeRow('plus58', 'plus58Selection', modes['2'], canModify);
+    this._updateModeRow('minus58', 'minus58Selection', modes['3'], canModify);
+
+    if (!canModify) {
       this.elements.lockTip.style.display = 'block';
     } else {
       this.elements.lockTip.style.display = 'none';
+    }
+  },
+
+  _updateModeRow(modeKey, selectionElId, selection, canModify) {
+    const el = this.elements[selectionElId];
+    if (!el) return;
+
+    if (selection) {
+      el.textContent = `已选：${selection.player_name}`;
+      el.classList.add('has-selection');
+    } else {
+      el.textContent = '未选择';
+      el.classList.remove('has-selection');
+    }
+
+    const modeItem = el.closest('.mode-item');
+    if (!modeItem) return;
+
+    const existingBtn = modeItem.querySelector('.mode-delete-btn');
+    if (existingBtn) existingBtn.remove();
+
+    if (selection && canModify) {
+      const btn = document.createElement('button');
+      btn.className = 'mode-delete-btn';
+      btn.textContent = '✕';
+      btn.dataset.mode = modeKey;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.handleDeleteSelection(modeKey);
+      });
+      modeItem.appendChild(btn);
+    }
+  },
+
+  async handleDeleteSelection(modeKey) {
+    const modeId = CONFIG.MODE_MAP[modeKey];
+    if (!modeId || !this.state.user) return;
+
+    const confirmed = confirm('确定要取消当前球员选择吗？');
+    if (!confirmed) return;
+
+    try {
+      await API.deleteSelection({
+        userId: this.state.user.id,
+        playMode: modeId,
+        gameDate: this.state.selectedDate,
+      });
+      this.showToast('已取消选择');
+      await this.fetchCurrentSelections(this.state.selectedDate);
+      await this.fetchFrozenList(this.state.currentModeId);
+    } catch (error) {
+      this.showToast(error.message || '操作失败');
     }
   },
 
@@ -598,6 +672,7 @@ const App = {
   // Mode Panel
   async showModePanel() {
     await this.loadDateOptions();
+    await this.fetchCurrentSelections(this.state.selectedDate);
     this.elements.modeSheetMask.classList.add('show');
     this.elements.modeSheet.classList.add('show');
   },
@@ -756,8 +831,11 @@ const App = {
     const clickedTab = document.querySelector(`.tab-bar-item[data-page="${page}"] .text`);
     if (clickedTab) clickedTab.classList.add('active');
 
+    this.elements.profilePage.style.display = 'none';
+    this.elements.historyPage.style.display = 'none';
+    this.elements.leaderboardPage.style.display = 'none';
+
     if (page === 'schedule') {
-      this.elements.profilePage.style.display = 'none';
       this.elements.timelineScroll.style.display = 'block';
       document.querySelector('.header').style.display = 'block';
     } else if (page === 'profile') {
@@ -765,6 +843,8 @@ const App = {
       document.querySelector('.header').style.display = 'none';
       this.showProfile();
     }
+
+    this.state.currentTab = page;
   },
 
   // Profile
@@ -773,7 +853,7 @@ const App = {
     
     if (this.state.user) {
       this.elements.userNickname.textContent = this.state.user.nickname || '球迷';
-      this.elements.userAvatar.src = this.state.user.avatarUrl || 'https://img.yzcdn.cn/vant/cat.jpeg';
+      this.elements.userAvatar.src = this._resolveAvatarUrl(this.state.user.avatarUrl);
       this.elements.userTotalScore.textContent = this.state.user.totalScore || 0;
       if (this.elements.userGroupName) {
         this.elements.userGroupName.textContent = '默认小组';
@@ -781,6 +861,85 @@ const App = {
       
       this.loadUserRank();
       this.loadFrozenPlayers();
+    }
+  },
+
+  _resolveAvatarUrl(url) {
+    if (!url) return 'https://img.yzcdn.cn/vant/cat.jpeg';
+    if (url.startsWith('http')) return url;
+    return `${CONFIG.API_BASE.replace('/api', '')}${url}`;
+  },
+
+  _syncUserToStorage() {
+    if (this.state.user) {
+      Utils.storage.set('user', this.state.user);
+    }
+  },
+
+  // Nickname edit
+  showNicknameModal() {
+    this.elements.nicknameInput.value = this.state.user?.nickname || '';
+    this.elements.nicknameModal.style.display = 'flex';
+    this.elements.nicknameInput.focus();
+  },
+
+  hideNicknameModal() {
+    this.elements.nicknameModal.style.display = 'none';
+  },
+
+  async handleNicknameSubmit() {
+    const nickname = this.elements.nicknameInput.value.trim();
+    if (!nickname) {
+      this.showToast('昵称不能为空');
+      return;
+    }
+    if (nickname.length > 20) {
+      this.showToast('昵称不能超过20个字符');
+      return;
+    }
+
+    try {
+      const res = await API.updateProfile(this.state.user.id, { nickname });
+      this.state.user.nickname = res.nickname;
+      this._syncUserToStorage();
+      this.elements.userNickname.textContent = res.nickname;
+      this.hideNicknameModal();
+      this.showToast('昵称修改成功');
+    } catch (error) {
+      this.showToast(error.message || '修改失败');
+    }
+  },
+
+  // Avatar upload
+  async handleAvatarUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      this.showToast('图片大小不能超过 2MB');
+      e.target.value = '';
+      return;
+    }
+
+    if (!/^image\/(jpeg|png|gif|webp)$/.test(file.type)) {
+      this.showToast('仅支持 jpg/png/gif/webp 格式');
+      e.target.value = '';
+      return;
+    }
+
+    this.elements.avatarWrapper.classList.add('avatar-uploading');
+    try {
+      const res = await API.uploadAvatar(this.state.user.id, file);
+      const newUrl = this._resolveAvatarUrl(res.avatarUrl);
+      this.state.user.avatarUrl = res.avatarUrl;
+      this._syncUserToStorage();
+      this.elements.userAvatar.src = newUrl;
+      this.showToast('头像更新成功');
+    } catch (error) {
+      this.showToast(error.message || '上传失败');
+    } finally {
+      this.elements.avatarWrapper.classList.remove('avatar-uploading');
+      e.target.value = '';
     }
   },
 
@@ -797,15 +956,19 @@ const App = {
 
   async loadFrozenPlayers() {
     try {
-      const list = await API.getFrozenPlayers(this.state.user.id, this.state.currentModeId);
+      const list = await API.getFrozenPlayers(this.state.user.id);
       
       if (list && list.length) {
         let html = '';
         list.forEach(item => {
+          const modeName = CONFIG.MODE_NAMES[item.play_mode] || '常规模式';
           html += `
             <div class="frozen-card">
               <div class="frozen-info">
-                <div class="frozen-name">${item.player_name}</div>
+                <div class="frozen-name-row">
+                  <span class="frozen-name">${item.player_name}</span>
+                  <span class="frozen-mode-tag">${modeName}</span>
+                </div>
                 <div class="frozen-date">解冻: ${item.expires_at}</div>
               </div>
               <div class="frozen-status">❄️</div>

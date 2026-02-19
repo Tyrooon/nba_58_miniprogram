@@ -6,6 +6,12 @@ Page({
     loading: true,
     currentUserId: null,
   },
+  goBack() {
+    wx.navigateBack();
+  },
+  goHome() {
+    wx.switchTab({ url: '/pages/index/index' });
+  },
   onLoad() {
     const app = getApp();
     if (app.globalData?.user) {

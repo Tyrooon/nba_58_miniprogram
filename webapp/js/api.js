@@ -63,6 +63,23 @@ const API = {
     });
   },
   
+  async uploadAvatar(userId, file) {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    
+    const response = await fetch(`${CONFIG.API_BASE}/users/${userId}/avatar`, {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: '上传失败' }));
+      throw new Error(errorData.message || `HTTP ${response.status}`);
+    }
+    
+    return await response.json();
+  },
+  
   async getFrozenPlayers(userId, playMode) {
     const url = playMode !== undefined
       ? `/users/${userId}/frozen?playMode=${playMode}`
@@ -111,6 +128,13 @@ const API = {
   async submitSelection(data) {
     return this.request('/selections', {
       method: 'POST',
+      data
+    });
+  },
+  
+  async deleteSelection(data) {
+    return this.request('/selections', {
+      method: 'DELETE',
       data
     });
   },

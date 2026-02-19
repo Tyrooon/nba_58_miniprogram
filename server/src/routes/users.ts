@@ -1,7 +1,34 @@
 import { Router } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { upsertUser, getUserById, getUserFrozenPlayers, updateUserProfile, getLeaderboard, getAllUsers } from '../services/userService';
+import { paths } from '../config';
 
 const router = Router();
+
+const avatarDir = path.resolve(paths.data, 'uploads', 'avatars');
+fs.mkdirSync(avatarDir, { recursive: true });
+
+const avatarStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, avatarDir),
+  filename: (req, _file, cb) => {
+    const ext = path.extname(_file.originalname) || '.jpg';
+    cb(null, `${req.params.userId}_${Date.now()}${ext}`);
+  },
+});
+
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (/^image\/(jpeg|png|gif|webp)$/.test(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('仅支持 jpg/png/gif/webp 格式的图片'));
+    }
+  },
+});
 
 router.post('/login', async (req, res) => {
   const { code, openid, nickname, avatarUrl } = req.body ?? {};
@@ -71,6 +98,37 @@ router.put('/:userId/profile', async (req, res) => {
   } catch (error: any) {
     res.status(400).json({ message: error.message || '更新失败' });
   }
+});
+
+router.post('/:userId/avatar', (req, res, next) => {
+  avatarUpload.single('avatar')(req, res, async (err: any) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ message: '图片大小不能超过 2MB' });
+      }
+      return res.status(400).json({ message: err.message });
+    }
+    if (err) {
+      return res.status(400).json({ message: err.message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: '请上传头像文件' });
+    }
+
+    try {
+      const userId = Number(req.params.userId);
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      const updatedUser = await updateUserProfile(userId, undefined, avatarUrl);
+      res.json({
+        id: updatedUser.id,
+        nickname: updatedUser.nickname,
+        avatarUrl: updatedUser.avatar_url,
+        totalScore: updatedUser.total_score,
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || '上传失败' });
+    }
+  });
 });
 
 router.get('/:userId/frozen', async (req, res) => {

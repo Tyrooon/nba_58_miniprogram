@@ -1,4 +1,9 @@
 <view class="container">
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">← 返回</view>
+    <view class="nav-home" bindtap="goHome">🏠 首页</view>
+  </view>
+
   <view class="header">
     <view class="title">{{dateStr}} 比赛日</view>
     <view class="subtitle">选择球员 - {{modeName}}</view>

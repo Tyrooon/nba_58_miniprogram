@@ -52,7 +52,10 @@
       <block wx:for="{{frozen}}" wx:key="id">
         <view class="frozen-card">
           <view class="frozen-info">
-            <view class="frozen-name">{{item.player_name}}</view>
+            <view class="frozen-name-row">
+              <text class="frozen-name">{{item.player_name}}</text>
+              <text class="frozen-mode-tag">{{item.modeName || '常规'}}</text>
+            </view>
             <view class="frozen-date">解冻: {{item.expires_at}}</view>
           </view>
           <view class="frozen-status">❄️</view>

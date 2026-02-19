@@ -1,28 +1,42 @@
 const { request } = require('../../utils/request');
 
+const MODE_NAMES = { 1: '常规', 2: '正58', 3: '负58' };
+
 Page({
   data: {
     user: null,
     frozen: [],
     userRank: '--',
   },
-  async onShow() {
-    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
-      this.getTabBar().setData({
-        selected: 1
-      })
-    }
+  onShow() {
+    this._initTabBar();
 
     const app = getApp();
-    const user = await app.ensureLogin();
-    this.setData({ user });
-    this.loadFrozen();
-    this.loadRank();
+    app.ensureLogin().then((user) => {
+      this.setData({ user });
+      this.loadFrozen();
+      this.loadRank();
+    }).catch((err) => {
+      console.error('Profile login error:', err);
+    });
+  },
+  _initTabBar() {
+    const setTab = () => {
+      if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+        this.getTabBar().setData({ selected: 1 });
+      }
+    };
+    setTab();
+    setTimeout(setTab, 100);
   },
   async loadFrozen() {
     try {
       const list = await request({ url: `/users/${this.data.user.id}/frozen`, method: 'GET' });
-      this.setData({ frozen: list });
+      const decorated = (list || []).map(item => ({
+        ...item,
+        modeName: MODE_NAMES[item.play_mode] || '常规',
+      }));
+      this.setData({ frozen: decorated });
     } catch (error) {
       console.error(error);
     }

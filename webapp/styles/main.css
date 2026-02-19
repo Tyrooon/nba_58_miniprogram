@@ -770,7 +770,33 @@ html, body {
 }
 
 .mode-desc-selection {
+  color: var(--text-muted);
+}
+
+.mode-desc-selection.has-selection {
   color: var(--primary-color);
+}
+
+.mode-delete-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #FEE2E2;
+  color: var(--danger-color);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 8px;
+  transition: all 0.2s;
+}
+
+.mode-delete-btn:hover {
+  background: #FECACA;
 }
 
 .lock-tip {
@@ -802,11 +828,11 @@ html, body {
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: 70px;
   background: var(--bg-primary);
-  z-index: 1500;
+  z-index: 900;
   overflow-y: auto;
-  padding-bottom: 80px;
+  padding-bottom: 20px;
 }
 
 .page-header {
@@ -1003,10 +1029,25 @@ html, body {
   border-bottom: none;
 }
 
+.frozen-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .frozen-name {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.frozen-mode-tag {
+  font-size: 10px;
+  background: var(--primary-light);
+  color: var(--primary-color);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 500;
 }
 
 .frozen-date {
@@ -1215,6 +1256,38 @@ html, body {
 
 .primary-btn:hover {
   background: #2563EB;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.modal-actions .primary-btn,
+.modal-actions .secondary-btn {
+  flex: 1;
+}
+
+.secondary-btn {
+  width: 100%;
+  padding: 12px;
+  background: #F3F4F6;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.secondary-btn:hover {
+  background: #E5E7EB;
+}
+
+.avatar-uploading {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 /* Toast */

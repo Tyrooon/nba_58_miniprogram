@@ -36,7 +36,7 @@ const computeModifyWindow = async (dateKey: string) => {
   }
 
   const firstTipoff = toChinaDateTime(firstGame.tipoff);
-  const lockTime = firstTipoff.subtract(1, 'hour');
+  const lockTime = firstTipoff.subtract(5, 'minute');
   if (now.isBefore(lockTime)) {
     return { lockDate: dateKey, deadline: lockTime, canModify: true };
   }
@@ -162,6 +162,27 @@ export const createSelection = async (payload: SelectionPayload) => {
     }
     throw err;
   }
+};
+
+export const deleteSelection = async (userId: number, playMode: number, gameDate?: string) => {
+  const dateKey = toDateKey(gameDate);
+  await ensureCanModify(dateKey);
+
+  const existing = await getSelectionStmt.get([userId, dateKey, playMode]) as any;
+  if (!existing) {
+    throw new Error('未找到可删除的选择记录');
+  }
+
+  await removeFrozenPlayer({
+    userId,
+    playerId: existing.player_id,
+    playMode,
+    selectedDate: dateKey,
+  });
+
+  await db.prepare(`DELETE FROM selections WHERE id = ?`).run([existing.id]);
+
+  return { deleted: true, playMode, gameDate: dateKey };
 };
 
 export const getSelectionHistory = async (userId: number, limit = 30) =>

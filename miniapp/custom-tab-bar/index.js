@@ -46,10 +46,75 @@ Component({
     },
     async showGameModes() {
       await this.ensureDateOptions();
+      await this.loadCurrentSelections();
       this.setData({ showModes: true });
     },
     hideModes() {
       this.setData({ showModes: false });
+    },
+    async loadCurrentSelections() {
+      const app = getApp();
+      if (!app || !app.globalData || !app.globalData.user) return;
+      try {
+        const date = this.data.selectedDate || dayjs().format('YYYY-MM-DD');
+        const res = await request({
+          url: '/selections/current',
+          data: { userId: app.globalData.user.id, date }
+        });
+        const modes = res?.modes || {};
+        this.setData({
+          currentSelectionRegular: modes['1'] || modes[1] || null,
+          currentSelectionPlus58: modes['2'] || modes[2] || null,
+          currentSelectionMinus58: modes['3'] || modes[3] || null,
+          canModifySelection: res?.canModify !== false,
+        });
+      } catch (e) {
+        console.error('加载当前选择失败', e);
+      }
+    },
+    async handleDeleteSelection(e) {
+      const modeKey = e.currentTarget.dataset.mode;
+      const modeId = MODE_MAP[modeKey];
+      if (!modeId) return;
+
+      if (!this.data.canModifySelection) {
+        return wx.showToast({ title: '已过修改截止时间', icon: 'none' });
+      }
+
+      const app = getApp();
+      if (!app || !app.globalData || !app.globalData.user) return;
+
+      wx.showModal({
+        title: '取消选择',
+        content: '确定要删除当前球员选择吗？',
+        success: async (res) => {
+          if (!res.confirm) return;
+          try {
+            await request({
+              url: '/selections',
+              method: 'DELETE',
+              data: {
+                userId: app.globalData.user.id,
+                playMode: modeId,
+                gameDate: this.data.selectedDate,
+              }
+            });
+            wx.showToast({ title: '已取消选择', icon: 'success' });
+            await this.loadCurrentSelections();
+            this._notifyPageRefresh();
+          } catch (error) {
+            wx.showToast({ title: error.message || '操作失败', icon: 'none' });
+          }
+        }
+      });
+    },
+    _notifyPageRefresh() {
+      const pages = getCurrentPages();
+      if (!pages || !pages.length) return;
+      const currentPage = pages[pages.length - 1];
+      if (currentPage && typeof currentPage.fetchCurrentSelections === 'function') {
+        currentPage.fetchCurrentSelections(this.data.selectedDate);
+      }
     },
     async ensureDateOptions() {
       if (this.data.loadingDates) return;
@@ -97,6 +162,7 @@ Component({
         selectedDateLabel: label
       });
       this.notifyDateChange(date);
+      this.loadCurrentSelections();
     },
     notifyDateChange(date) {
       const pages = getCurrentPages();

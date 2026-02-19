@@ -7,6 +7,25 @@
   flex-direction: column;
 }
 
+.nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8rpx 0 16rpx;
+}
+
+.nav-back {
+  font-size: 28rpx;
+  color: #3B82F6;
+  font-weight: 500;
+}
+
+.nav-home {
+  font-size: 28rpx;
+  color: #3B82F6;
+  font-weight: 500;
+}
+
 .header {
   margin-bottom: 24rpx;
 }

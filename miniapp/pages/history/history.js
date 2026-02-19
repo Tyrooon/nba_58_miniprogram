@@ -16,6 +16,12 @@ Page({
     this.setData({ user });
     this.loadHistory();
   },
+  goBack() {
+    wx.navigateBack();
+  },
+  goHome() {
+    wx.switchTab({ url: '/pages/index/index' });
+  },
   async loadHistory() {
     try {
       this.setData({ loading: true });

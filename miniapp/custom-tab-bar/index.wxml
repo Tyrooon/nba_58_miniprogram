@@ -51,9 +51,10 @@
       <view class="mode-name">常规模式</view>
       <view class="mode-desc">
         <text>标准玩法</text>
-        <text class="mode-desc-selection">{{currentSelectionRegular ? ('已选：' + currentSelectionRegular.player_name) : '未选择'}}</text>
+        <text class="mode-desc-selection {{currentSelectionRegular ? 'has-selection' : ''}}">{{currentSelectionRegular ? ('已选：' + currentSelectionRegular.player_name) : '未选择'}}</text>
       </view>
     </view>
+    <view class="delete-btn" wx:if="{{currentSelectionRegular && canModifySelection}}" catchtap="handleDeleteSelection" data-mode="regular">✕</view>
   </view>
   <view class="mode-item" bindtap="selectMode" data-mode="plus58">
     <view class="mode-icon">📈</view>
@@ -61,9 +62,10 @@
       <view class="mode-name">正58</view>
       <view class="mode-desc">
         <text>挑战最高分</text>
-        <text class="mode-desc-selection">{{currentSelectionPlus58 ? ('已选：' + currentSelectionPlus58.player_name) : '未选择'}}</text>
+        <text class="mode-desc-selection {{currentSelectionPlus58 ? 'has-selection' : ''}}">{{currentSelectionPlus58 ? ('已选：' + currentSelectionPlus58.player_name) : '未选择'}}</text>
       </view>
     </view>
+    <view class="delete-btn" wx:if="{{currentSelectionPlus58 && canModifySelection}}" catchtap="handleDeleteSelection" data-mode="plus58">✕</view>
   </view>
   <view class="mode-item" bindtap="selectMode" data-mode="minus58">
     <view class="mode-icon">📉</view>
@@ -71,9 +73,10 @@
       <view class="mode-name">负58</view>
       <view class="mode-desc">
         <text>挑战最低分</text>
-        <text class="mode-desc-selection">{{currentSelectionMinus58 ? ('已选：' + currentSelectionMinus58.player_name) : '未选择'}}</text>
+        <text class="mode-desc-selection {{currentSelectionMinus58 ? 'has-selection' : ''}}">{{currentSelectionMinus58 ? ('已选：' + currentSelectionMinus58.player_name) : '未选择'}}</text>
       </view>
     </view>
+    <view class="delete-btn" wx:if="{{currentSelectionMinus58 && canModifySelection}}" catchtap="handleDeleteSelection" data-mode="minus58">✕</view>
   </view>
   <view class="lock-tip" wx:if="{{!canModifySelection}}">
     今日第一场比赛已锁定，如需修改请等待下一比赛日

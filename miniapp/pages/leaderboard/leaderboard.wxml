@@ -1,4 +1,10 @@
 <view class="page-container">
+  <!-- Nav Bar -->
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">← 返回</view>
+    <view class="nav-home" bindtap="goHome">🏠 首页</view>
+  </view>
+
   <!-- Header -->
   <view class="header">
     <view class="header-title">🏆 排行榜</view>

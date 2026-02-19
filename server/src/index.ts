@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import cors from 'cors';
 import './db';
-import { config } from './config';
+import { config, paths } from './config';
 import usersRouter from './routes/users';
 import gamesRouter from './routes/games';
 import selectionsRouter from './routes/selections';
@@ -26,6 +26,9 @@ app.use('/api/games', gamesRouter);
 app.use('/api/selections', selectionsRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/admin', adminRouter);
+
+// Serve uploaded files (avatars, etc.)
+app.use('/uploads', express.static(path.resolve(paths.data, 'uploads')));
 
 // Serve webapp static files (built into dist/public by root build script)
 const publicDir = path.resolve(__dirname, 'public');
