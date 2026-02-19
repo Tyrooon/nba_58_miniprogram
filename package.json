@@ -2,7 +2,7 @@
   "name": "nba-58-miniprogram",
   "private": true,
   "scripts": {
-    "build": "cd server && npm install && npm run build && mkdir -p dist/public && cp -r ../webapp/* dist/public/",
+    "build": "cd server && npm install --include=dev && npm run build && mkdir -p dist/public && cp -r ../webapp/* dist/public/",
     "start": "node server/dist/index.js"
   },
   "engines": {
