@@ -593,6 +593,7 @@ const App = {
       this.showToast('同步失败');
     } finally {
       this.state.gameLoading = null;
+      this.renderTimeline();
     }
   },
 
