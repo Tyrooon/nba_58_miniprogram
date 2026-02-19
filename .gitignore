@@ -7,7 +7,9 @@ package-lock.json
 *.db-journal
 *.db-wal
 *.db-shm
-server/data/
+# 保留主数据库（含球员赛季得分等核心数据）
+!server/data/nba_guess.db
+# server/data/
 
 # Environment variables
 .env

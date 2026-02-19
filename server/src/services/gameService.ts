@@ -420,67 +420,78 @@ export const syncDailyData = async (targetDate?: string) => {
 };
 
 /**
- * 轻量同步单日数据：仅拉取指定日期的赛程+球员，用于前端刷新按钮
+ * 轻量同步单日数据：仅刷新指定日期的比赛状态和球员，用于前端刷新按钮
+ * 优先从数据库读取比赛列表，只用 UPSERT 更新，不做 DELETE
  */
 export const syncSingleDate = async (dateKey: string) => {
   console.log(`[sync-single] ${dateKey}`);
 
-  const games = await getGamesInRange(dateKey, dateKey);
-  if (games.length === 0) {
-    return { date: dateKey, games: 0, players: 0 };
+  // 1. 优先从数据库读取该日比赛
+  let dbGames = await db.prepare(
+    `SELECT * FROM games WHERE game_date = ? ORDER BY tipoff ASC`
+  ).all([dateKey]) as any[];
+
+  // 2. 如果数据库没有该日比赛，才去 NBA API 拉赛程
+  if (dbGames.length === 0) {
+    console.log(`[sync-single] ${dateKey}: no games in DB, fetching from API...`);
+    const apiGames = await getGamesInRange(dateKey, dateKey);
+    if (apiGames.length === 0) {
+      return { date: dateKey, games: 0, players: 0 };
+    }
+    const insertGameStmt = db.prepare(`
+      INSERT INTO games (external_id, game_date, status, tipoff, home_team_id, home_team_name, visitor_team_id, visitor_team_name, home_score, visitor_score, season)
+      VALUES (@external_id, @game_date, @status, @tipoff, @home_team_id, @home_team_name, @visitor_team_id, @visitor_team_name, @home_score, @visitor_score, @season)
+      ON CONFLICT(external_id) DO UPDATE SET status=excluded.status, home_score=excluded.home_score, visitor_score=excluded.visitor_score
+    `);
+    for (const g of apiGames) {
+      await insertGameStmt.run({
+        external_id: g.gameId, game_date: g.gameDate, status: g.status, tipoff: g.gameTimeBeijing,
+        home_team_id: g.homeTeamId, home_team_name: g.homeTeamNameCn,
+        visitor_team_id: g.awayTeamId, visitor_team_name: g.awayTeamNameCn,
+        home_score: g.homeScore, visitor_score: g.awayScore, season: config.currentSeason,
+      });
+    }
+    dbGames = await db.prepare(
+      `SELECT * FROM games WHERE game_date = ? ORDER BY tipoff ASC`
+    ).all([dateKey]) as any[];
   }
 
-  // UPSERT games
-  const insertGameStmt = db.prepare(`
-    INSERT INTO games (external_id, game_date, status, tipoff, home_team_id, home_team_name, visitor_team_id, visitor_team_name, home_score, visitor_score, season)
-    VALUES (@external_id, @game_date, @status, @tipoff, @home_team_id, @home_team_name, @visitor_team_id, @visitor_team_name, @home_score, @visitor_score, @season)
-    ON CONFLICT(external_id) DO UPDATE SET
-      status = excluded.status,
-      home_score = excluded.home_score,
-      visitor_score = excluded.visitor_score
-  `);
-
-  for (const game of games) {
-    await insertGameStmt.run({
-      external_id: game.gameId,
-      game_date: game.gameDate,
-      status: game.status,
-      tipoff: game.gameTimeBeijing,
-      home_team_id: game.homeTeamId,
-      home_team_name: game.homeTeamNameCn,
-      visitor_team_id: game.awayTeamId,
-      visitor_team_name: game.awayTeamNameCn,
-      home_score: game.homeScore,
-      visitor_score: game.awayScore,
-      season: config.currentSeason,
-    });
-  }
-
-  // 清理该日的 daily_players 以便重新写入
-  await db.prepare('DELETE FROM daily_players WHERE game_date = ?').run([dateKey]);
-
+  // 3. 获取球员花名册（有 1 小时缓存，不会重复请求 API）
   const allPlayerStats = await getBBRAllPlayerStats();
+  if (allPlayerStats.length === 0) {
+    console.warn(`[sync-single] ${dateKey}: no player stats available`);
+    return { date: dateKey, games: dbGames.length, players: 0 };
+  }
+
   const playersByTeam = new Map<number, typeof allPlayerStats>();
   for (const player of allPlayerStats) {
     if (!playersByTeam.has(player.teamId)) playersByTeam.set(player.teamId, []);
     playersByTeam.get(player.teamId)!.push(player);
   }
 
-  const insertPlayerStmt = db.prepare(`
+  // 4. UPSERT 球员数据（不做 DELETE，避免数据丢失）
+  const upsertPlayerStmt = db.prepare(`
     INSERT INTO daily_players (game_date, team_id, team_name, player_id, player_name, position, season_avg, stats_points, stats_rebounds, stats_assists, stats_status)
     VALUES (@game_date, @team_id, @team_name, @player_id, @player_name, @position, @season_avg, @stats_points, @stats_rebounds, @stats_assists, @stats_status)
     ON CONFLICT(game_date, player_id) DO UPDATE SET
       team_id = excluded.team_id, team_name = excluded.team_name, position = excluded.position,
-      season_avg = excluded.season_avg, stats_points = excluded.stats_points,
-      stats_rebounds = excluded.stats_rebounds, stats_assists = excluded.stats_assists, stats_status = excluded.stats_status
+      season_avg = excluded.season_avg,
+      stats_points = CASE WHEN excluded.stats_points > 0 THEN excluded.stats_points ELSE daily_players.stats_points END,
+      stats_rebounds = CASE WHEN excluded.stats_points > 0 THEN excluded.stats_rebounds ELSE daily_players.stats_rebounds END,
+      stats_assists = CASE WHEN excluded.stats_points > 0 THEN excluded.stats_assists ELSE daily_players.stats_assists END,
+      stats_status = excluded.stats_status
   `);
 
   let totalPlayers = 0;
-  for (const game of games) {
+  for (const game of dbGames) {
+    const homeTeamId = game.home_team_id;
+    const visitorTeamId = game.visitor_team_id;
+
+    // 获取 boxscore（仅 Final 比赛）
     let boxscoreData: Map<string, { points: number; rebounds: number; assists: number }> | null = null;
     if (game.status === 'Final') {
       try {
-        const boxscoreResult = await getBBRBoxscore(game.gameDate, game.homeTeamId, game.nbaGameDate);
+        const boxscoreResult = await getBBRBoxscore(game.game_date, homeTeamId, undefined);
         if (boxscoreResult) {
           boxscoreData = new Map();
           for (const p of [...boxscoreResult.homePlayers, ...boxscoreResult.awayPlayers]) {
@@ -491,33 +502,30 @@ export const syncSingleDate = async (dateKey: string) => {
     }
 
     const sides = [
-      { players: playersByTeam.get(game.homeTeamId) || [], teamId: game.homeTeamId, teamName: game.homeTeamNameCn },
-      { players: playersByTeam.get(game.awayTeamId) || [], teamId: game.awayTeamId, teamName: game.awayTeamNameCn },
+      { players: playersByTeam.get(homeTeamId) || [], teamId: homeTeamId, teamName: game.home_team_name },
+      { players: playersByTeam.get(visitorTeamId) || [], teamId: visitorTeamId, teamName: game.visitor_team_name },
     ];
-    const existingNames = new Set<string>();
 
     for (const side of sides) {
       for (const player of side.players) {
         const bs = boxscoreData?.get(player.playerName.toLowerCase());
-        await insertPlayerStmt.run({
-          game_date: game.gameDate, team_id: side.teamId, team_name: side.teamName,
+        await upsertPlayerStmt.run({
+          game_date: dateKey, team_id: side.teamId, team_name: side.teamName,
           player_id: hashString(player.playerId), player_name: player.playerName,
           position: player.position || '', season_avg: player.pointsPerGame,
           stats_points: bs?.points || 0, stats_rebounds: bs?.rebounds || 0, stats_assists: bs?.assists || 0,
           stats_status: game.status === 'Final' ? 'played' : 'scheduled',
         });
-        existingNames.add(player.playerName.toLowerCase());
         totalPlayers++;
       }
     }
-
   }
 
-  // 修正 season_avg
+  // 5. 修正 season_avg
   try { await fixSeasonAvg(dateKey, dateKey); } catch (_) {}
 
-  console.log(`[sync-single] ${dateKey}: ${games.length} games, ${totalPlayers} players`);
-  return { date: dateKey, games: games.length, players: totalPlayers };
+  console.log(`[sync-single] ${dateKey}: ${dbGames.length} games, ${totalPlayers} players`);
+  return { date: dateKey, games: dbGames.length, players: totalPlayers };
 };
 
 /**
