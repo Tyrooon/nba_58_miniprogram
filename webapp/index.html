@@ -1,12 +1,20 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>NBA 58 竞猜</title>
   <link rel="stylesheet" href="styles/main.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏀</text></svg>">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏀</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+SC:wght@400;600;700;800&display=swap"
+    rel="stylesheet">
 </head>
+
 <body>
   <div id="app">
     <!-- Header -->
@@ -15,8 +23,6 @@
         <div class="season-selector">
           <select id="seasonSelect" class="season-picker">
             <option value="2025-2026">2025-2026</option>
-            <option value="2024-2025">2024-2025</option>
-            <option value="2023-2024">2023-2024</option>
           </select>
         </div>
         <div class="actions">
@@ -64,7 +70,9 @@
       </div>
 
       <div class="tab-bar-item center-item" id="openModePanel">
-        <div class="nba-btn">🏀</div>
+        <div class="nba-btn" style="display:flex;align-items:center;justify-content:center;">
+          <img src="images/nba58.png" alt="NBA 58" style="width: 120px; height: 120px; object-fit: contain;">
+        </div>
         <div class="selection-hint">
           <span class="selection-date" id="selectedDateLabel">选择比赛日</span>
           <span class="selection-text" id="tabSelectionText">未选择</span>
@@ -81,7 +89,7 @@
     <div class="action-sheet-mask" id="modeSheetMask"></div>
     <div class="action-sheet" id="modeSheet">
       <div class="action-sheet-title">选择游戏模式</div>
-      
+
       <div class="date-picker">
         <div class="date-picker-title">选择比赛日</div>
         <div class="date-tag-list" id="dateTagList">
@@ -148,7 +156,7 @@
             </div>
           </div>
         </div>
-        
+
         <div class="stats-row">
           <div class="stat-item">
             <div class="stat-label">当前积分</div>
@@ -171,6 +179,11 @@
         <div class="menu-item" id="leaderboardMenuItem">
           <div class="menu-icon" style="background: #FEF3C7; color: #F59E0B;">📊</div>
           <div class="menu-text">排行榜</div>
+          <div class="menu-arrow">></div>
+        </div>
+        <div class="menu-item" id="scoreboardMenuItem">
+          <div class="menu-icon" style="background: #E0E7FF; color: #4F46E5;">🗓️</div>
+          <div class="menu-text">每日得分看板</div>
           <div class="menu-arrow">></div>
         </div>
       </div>
@@ -209,6 +222,30 @@
       </div>
     </div>
 
+    <!-- Scoreboard Page -->
+    <div class="page-container scoreboard-page" id="scoreboardPage" style="display: none;">
+      <header class="page-header">
+        <button class="back-btn" id="scoreboardBackBtn">←</button>
+        <h1>每日得分看板</h1>
+      </header>
+      <div class="scoreboard-filters">
+        <input type="date" id="scoreboardDateInput" class="scoreboard-date-picker">
+      </div>
+      <div class="scoreboard-tabs" id="scoreboardTabs">
+        <div class="sb-tab active" data-mode="1">常规</div>
+        <div class="sb-tab" data-mode="2">正58</div>
+        <div class="sb-tab" data-mode="3">负58</div>
+      </div>
+      <div class="scoreboard-formula" id="scoreboardFormula">
+        <!-- Formula description will be populated here -->
+      </div>
+      <div class="scoreboard-list" id="scoreboardList">
+        <div class="loading-container">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- User Selections Modal -->
     <div class="user-picks-modal" id="userPicksModal" style="display: none;">
       <div class="user-picks-overlay" id="userPicksOverlay"></div>
@@ -218,7 +255,9 @@
           <button class="user-picks-close" id="userPicksClose">&times;</button>
         </div>
         <div class="user-picks-body" id="userPicksBody">
-          <div class="loading-container"><div class="spinner"></div></div>
+          <div class="loading-container">
+            <div class="spinner"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -259,7 +298,8 @@
           </div>
           <div class="auth-field">
             <label>密码</label>
-            <input type="password" id="loginPassword" placeholder="请输入密码" maxlength="32" autocomplete="current-password">
+            <input type="password" id="loginPassword" placeholder="请输入密码" maxlength="32"
+              autocomplete="current-password">
           </div>
           <button class="primary-btn auth-submit" id="loginSubmitBtn">登 录</button>
           <div class="auth-forgot" id="forgotPasswordBtn">忘记密码？</div>
@@ -277,7 +317,8 @@
           </div>
           <div class="auth-field">
             <label>确认密码</label>
-            <input type="password" id="regConfirmPassword" placeholder="再次输入密码" maxlength="32" autocomplete="new-password">
+            <input type="password" id="regConfirmPassword" placeholder="再次输入密码" maxlength="32"
+              autocomplete="new-password">
           </div>
           <div class="auth-field">
             <label>昵称 <span class="auth-hint">（选填，默认与用户ID相同）</span></label>
@@ -297,4 +338,5 @@
   <script src="js/api.js"></script>
   <script src="js/app.js"></script>
 </body>
+
 </html>

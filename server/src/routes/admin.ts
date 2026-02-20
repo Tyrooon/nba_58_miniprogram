@@ -1,8 +1,41 @@
 import { Router } from 'express';
 import { syncDailyData, syncSeasonSchedule } from '../services/gameService';
 import { computeDayScores } from '../services/scoringService';
+import db from '../db';
+import { toDateKey } from '../utils/date';
 
 const router = Router();
+
+router.get('/daily-scoreboard', async (req, res, next) => {
+  try {
+    const dateKey = toDateKey(req.query.date as string | undefined);
+    const rows = await db.prepare(`
+      SELECT 
+        s.play_mode,
+        u.nickname as user_name,
+        s.player_name,
+        s.player_season_avg as season_avg,
+        s.player_actual_score as actual_score,
+        s.base_score,
+        s.bonus_score,
+        s.total_score
+      FROM selections s
+      JOIN users u ON s.user_id = u.id
+      WHERE s.game_date = ?
+      ORDER BY s.play_mode ASC, s.total_score DESC
+    `).all([dateKey]) as any[];
+
+    const modes = {
+      1: rows.filter(r => r.play_mode === 1),
+      2: rows.filter(r => r.play_mode === 2),
+      3: rows.filter(r => r.play_mode === 3)
+    };
+
+    res.json({ date: dateKey, modes });
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.post('/sync', async (req, res, next) => {
   try {

@@ -20,7 +20,8 @@
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background-color: var(--bg-primary);
   color: var(--text-primary);
@@ -43,7 +44,7 @@ html, body {
   z-index: 100;
   background-color: var(--bg-white);
   padding: 12px 16px 16px;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
 }
 
 .header-top {
@@ -93,7 +94,7 @@ html, body {
   background: var(--bg-white);
   border-radius: 12px;
   padding: 12px 16px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .mode-row {
@@ -150,8 +151,13 @@ html, body {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Date Group */
@@ -192,12 +198,12 @@ html, body {
   margin: 12px 16px;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
   transition: all 0.3s ease;
 }
 
 .game-card.expanded {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .game-summary {
@@ -405,10 +411,12 @@ html, body {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
   }
+
   .player-chip {
     flex-direction: column;
     align-items: flex-start;
   }
+
   .p-stat {
     margin-top: 4px;
   }
@@ -584,7 +592,7 @@ html, body {
   display: flex;
   justify-content: space-around;
   align-items: center;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
   z-index: 1000;
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -670,7 +678,7 @@ html, body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   z-index: 2000;
   display: none;
 }
@@ -886,7 +894,7 @@ html, body {
   margin: 16px;
   border-radius: 16px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .user-header {
@@ -1240,7 +1248,7 @@ html, body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   z-index: 3000;
   display: flex;
   align-items: center;
@@ -1343,7 +1351,7 @@ html, body {
   width: 90%;
   max-width: 360px;
   text-align: center;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
 }
 
 .auth-logo {
@@ -1380,7 +1388,7 @@ html, body {
 .auth-tab.active {
   background: var(--bg-white);
   color: var(--primary-color);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .auth-form {
@@ -1418,7 +1426,7 @@ html, body {
 .auth-field input:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .auth-submit {
@@ -1447,7 +1455,7 @@ html, body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(0,0,0,0.8);
+  background: rgba(0, 0, 0, 0.8);
   color: white;
   padding: 12px 24px;
   border-radius: 8px;
@@ -1467,11 +1475,11 @@ html, body {
   .score-num {
     font-size: 20px;
   }
-  
+
   .team-block {
     width: 60px;
   }
-  
+
   .team-logo {
     width: 36px;
     height: 36px;
@@ -1525,19 +1533,27 @@ html, body {
 /* User Picks Modal */
 .user-picks-modal {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 3000;
 }
 
 .user-picks-overlay {
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.45);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
 }
 
 .user-picks-sheet {
   position: absolute;
-  bottom: 0; left: 0; right: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
   max-height: 75vh;
   background: var(--bg-primary);
   border-radius: 16px 16px 0 0;
@@ -1547,8 +1563,13 @@ html, body {
 }
 
 @keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
 }
 
 .user-picks-header {
@@ -1567,12 +1588,17 @@ html, body {
 }
 
 .user-picks-close {
-  width: 30px; height: 30px;
-  border: none; background: var(--bg-primary);
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: var(--bg-primary);
   border-radius: 50%;
-  font-size: 20px; color: var(--text-muted);
+  font-size: 20px;
+  color: var(--text-muted);
   cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .user-picks-body {
@@ -1611,9 +1637,17 @@ html, body {
   color: #fff;
 }
 
-.picks-mode-tag.mode-1 { background: #3B82F6; }
-.picks-mode-tag.mode-2 { background: #10B981; }
-.picks-mode-tag.mode-3 { background: #F59E0B; }
+.picks-mode-tag.mode-1 {
+  background: #3B82F6;
+}
+
+.picks-mode-tag.mode-2 {
+  background: #10B981;
+}
+
+.picks-mode-tag.mode-3 {
+  background: #F59E0B;
+}
 
 .picks-player {
   flex: 1;
@@ -1644,9 +1678,17 @@ html, body {
   font-weight: 700;
 }
 
-.picks-actual.pending { color: var(--text-muted); }
-.picks-actual.positive { color: #10B981; }
-.picks-actual.negative { color: #EF4444; }
+.picks-actual.pending {
+  color: var(--text-muted);
+}
+
+.picks-actual.positive {
+  color: #10B981;
+}
+
+.picks-actual.negative {
+  color: #EF4444;
+}
 
 .picks-detail {
   font-size: 10px;
@@ -1666,4 +1708,234 @@ html, body {
 
 .leaderboard-item:active {
   opacity: 0.7;
+}
+
+/* ==================== NEW UI/UX POLISH & ANIMATIONS ==================== */
+
+/* 1. Header & Font */
+.header {
+  background: linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%);
+}
+
+/* 2. Micro Animations */
+.primary-btn,
+.mode-badge,
+.tab-bar-item {
+  transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+
+.primary-btn:active,
+.mode-badge:active {
+  transform: scale(0.96);
+}
+
+.game-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.player-chip.selected {
+  transform: scale(1.02);
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
+}
+
+/* 3. Skeleton Loading */
+.loading-container .spinner {
+  display: none;
+  /* fallback to skeleton */
+}
+
+.loading-container::after {
+  content: "";
+  display: block;
+  width: 120px;
+  height: 12px;
+  background: linear-gradient(90deg, #E5E7EB 25%, #F3F4F6 50%, #E5E7EB 75%);
+  background-size: 200% 100%;
+  animation: loadingSkeleton 1.5s infinite linear;
+  border-radius: 6px;
+  margin: 10px auto;
+}
+
+@keyframes loadingSkeleton {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* 4. Tab Bar Active Glow */
+.tab-bar-item .text.active {
+  text-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+}
+
+/* 5. Toast Animation */
+.toast {
+  top: auto;
+  bottom: -40px;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 80%;
+  text-align: center;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 20px;
+  padding: 10px 20px;
+}
+
+.toast.show {
+  bottom: 80px;
+  opacity: 1;
+}
+
+
+/* ==================== REFRESH BUTTON SPIN & DRAG ==================== */
+
+.floating-refresh {
+  touch-action: none;
+  /* enable dragging on touch devices */
+}
+
+.floating-refresh.dragging {
+  transition: none !important;
+  /* stop transition during drag */
+  opacity: 0.9;
+  transform: scale(1.1);
+  box-shadow: 0 8px 16px rgba(59, 130, 246, 0.5);
+}
+
+.floating-refresh.spinning {
+  animation: spinIcon 1s linear infinite;
+  pointer-events: none;
+  /* block clicks while spinning */
+}
+
+@keyframes spinIcon {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* ==================== DAILY SCOREBOARD ==================== */
+
+.scoreboard-page {
+  background: var(--bg-primary);
+}
+
+.scoreboard-filters {
+  padding: 12px 16px;
+  background: var(--bg-white);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: center;
+}
+
+.scoreboard-date-picker {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  background: #F9FAFB;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.scoreboard-tabs {
+  display: flex;
+  background: var(--bg-white);
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sb-tab {
+  flex: 1;
+  text-align: center;
+  padding: 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+.sb-tab.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+.scoreboard-formula {
+  padding: 10px 16px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: #EFF6FF;
+  border-bottom: 1px solid #DBEAFE;
+  text-align: center;
+}
+
+.scoreboard-list {
+  padding: 12px 16px 80px;
+}
+
+.sc-card {
+  background: var(--bg-white);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+.sc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px dashed var(--border-color);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.sc-user {
+  font-weight: 700;
+  font-size: 14px;
+  color: #1F2937;
+}
+
+.sc-total {
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.sc-total.positive {
+  color: var(--danger-color);
+}
+
+.sc-total.negative {
+  color: var(--success-color);
+}
+
+.sc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sc-player {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.sc-actual {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.sc-calc {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: #F3F4F6;
+  padding: 4px 8px;
+  border-radius: 6px;
+  display: inline-block;
 }

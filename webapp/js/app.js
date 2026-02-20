@@ -39,22 +39,22 @@ const App = {
       selectionLockTime: document.getElementById('selectionLockTime'),
       lockTimeRow: document.getElementById('lockTimeRow'),
       lockStatus: document.getElementById('lockStatus'),
-      
+
       // Timeline
       timelineScroll: document.getElementById('timelineScroll'),
       timelineContent: document.getElementById('timelineContent'),
       loadingContainer: document.getElementById('loadingContainer'),
-      
+
       // Buttons
       syncScheduleBtn: document.getElementById('syncScheduleBtn'),
       scrollToTodayBtn: document.getElementById('scrollToTodayBtn'),
       refreshScoresBtn: document.getElementById('refreshScoresBtn'),
-      
+
       // Tab Bar
       openModePanel: document.getElementById('openModePanel'),
       selectedDateLabel: document.getElementById('selectedDateLabel'),
       tabSelectionText: document.getElementById('tabSelectionText'),
-      
+
       // Mode Sheet
       modeSheetMask: document.getElementById('modeSheetMask'),
       modeSheet: document.getElementById('modeSheet'),
@@ -64,12 +64,12 @@ const App = {
       plus58Selection: document.getElementById('plus58Selection'),
       minus58Selection: document.getElementById('minus58Selection'),
       lockTip: document.getElementById('lockTip'),
-      
+
       // Pages
       profilePage: document.getElementById('profilePage'),
       historyPage: document.getElementById('historyPage'),
       leaderboardPage: document.getElementById('leaderboardPage'),
-      
+
       // Profile
       userAvatar: document.getElementById('userAvatar'),
       userNickname: document.getElementById('userNickname'),
@@ -84,14 +84,23 @@ const App = {
       historyList: document.getElementById('historyList'),
       leaderboardList: document.getElementById('leaderboardList'),
       logoutBtn: document.getElementById('logoutBtn'),
-      
+
+      // Scoreboard
+      scoreboardMenuItem: document.getElementById('scoreboardMenuItem'),
+      scoreboardPage: document.getElementById('scoreboardPage'),
+      scoreboardBackBtn: document.getElementById('scoreboardBackBtn'),
+      scoreboardDateInput: document.getElementById('scoreboardDateInput'),
+      scoreboardTabs: document.getElementById('scoreboardTabs'),
+      scoreboardFormula: document.getElementById('scoreboardFormula'),
+      scoreboardList: document.getElementById('scoreboardList'),
+
       // User Picks Modal
       userPicksModal: document.getElementById('userPicksModal'),
       userPicksOverlay: document.getElementById('userPicksOverlay'),
       userPicksClose: document.getElementById('userPicksClose'),
       userPicksTitle: document.getElementById('userPicksTitle'),
       userPicksBody: document.getElementById('userPicksBody'),
-      
+
       // Auth
       authModal: document.getElementById('authModal'),
       authTabLogin: document.getElementById('authTabLogin'),
@@ -107,18 +116,18 @@ const App = {
       regConfirmPassword: document.getElementById('regConfirmPassword'),
       regNickname: document.getElementById('regNickname'),
       registerSubmitBtn: document.getElementById('registerSubmitBtn'),
-      
+
       // Nickname modal
       nicknameModal: document.getElementById('nicknameModal'),
       nicknameInput: document.getElementById('nicknameInput'),
       nicknameCancelBtn: document.getElementById('nicknameCancelBtn'),
       nicknameConfirmBtn: document.getElementById('nicknameConfirmBtn'),
-      
+
       // Avatar
       avatarFileInput: document.getElementById('avatarFileInput'),
       avatarWrapper: document.getElementById('avatarWrapper'),
       editNickname: document.getElementById('editNickname'),
-      
+
       // Toast
       toast: document.getElementById('toast')
     };
@@ -144,14 +153,18 @@ const App = {
     // Buttons
     this.elements.syncScheduleBtn.addEventListener('click', () => this.handleSyncSchedule());
     this.elements.scrollToTodayBtn.addEventListener('click', () => this.scrollToToday());
-    this.elements.refreshScoresBtn.addEventListener('click', () => this.handleRefreshToday());
+
+    // Init floating button drag
+    this.initDraggableRefreshBtn();
 
     // Profile menu
     this.elements.historyMenuItem.addEventListener('click', () => this.showHistoryPage());
     this.elements.leaderboardMenuItem.addEventListener('click', () => this.showLeaderboardPage());
+    this.elements.scoreboardMenuItem.addEventListener('click', () => this.showScoreboardPage());
     this.elements.historyBackBtn.addEventListener('click', () => this.hideHistoryPage());
-    this.elements.logoutBtn.addEventListener('click', () => this.handleLogout());
     this.elements.leaderboardBackBtn.addEventListener('click', () => this.hideLeaderboardPage());
+    this.elements.scoreboardBackBtn.addEventListener('click', () => this.hideScoreboardPage());
+    this.elements.logoutBtn.addEventListener('click', () => this.handleLogout());
 
     // User picks modal
     this.elements.userPicksOverlay.addEventListener('click', () => this.hideUserPicks());
@@ -192,11 +205,11 @@ const App = {
     // Scroll events for infinite scroll
     this.elements.timelineScroll.addEventListener('scroll', Utils.debounce(() => {
       const { scrollTop, scrollHeight, clientHeight } = this.elements.timelineScroll;
-      
+
       if (scrollTop < 50) {
         this.handleScrollToUpper();
       }
-      
+
       if (scrollTop + clientHeight >= scrollHeight - 50) {
         this.handleScrollToLower();
       }
@@ -299,6 +312,66 @@ const App = {
     }
   },
 
+  initDraggableRefreshBtn() {
+    const btn = this.elements.refreshScoresBtn;
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let initialX = 0, initialY = 0;
+
+    const savedPos = Utils.storage.get('refreshBtnPos');
+    if (savedPos) {
+      btn.style.right = 'auto';
+      btn.style.bottom = 'auto';
+      btn.style.left = savedPos.x + 'px';
+      btn.style.top = savedPos.y + 'px';
+    }
+
+    btn.addEventListener('pointerdown', (e) => {
+      isDragging = false;
+      startX = e.clientX;
+      startY = e.clientY;
+      const rect = btn.getBoundingClientRect();
+      initialX = rect.left;
+      initialY = rect.top;
+      btn.classList.add('dragging');
+      btn.setPointerCapture(e.pointerId);
+    });
+
+    btn.addEventListener('pointermove', (e) => {
+      if (!btn.hasPointerCapture(e.pointerId)) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        isDragging = true;
+        btn.style.right = 'auto';
+        btn.style.bottom = 'auto';
+        let newX = initialX + dx;
+        let newY = initialY + dy;
+
+        const maxW = window.innerWidth - btn.offsetWidth;
+        const maxH = window.innerHeight - btn.offsetHeight;
+        newX = Math.max(0, Math.min(newX, maxW));
+        newY = Math.max(0, Math.min(newY, maxH));
+
+        btn.style.left = newX + 'px';
+        btn.style.top = newY + 'px';
+      }
+    });
+
+    btn.addEventListener('pointerup', (e) => {
+      btn.classList.remove('dragging');
+      btn.releasePointerCapture(e.pointerId);
+      if (isDragging) {
+        Utils.storage.set('refreshBtnPos', {
+          x: parseInt(btn.style.left),
+          y: parseInt(btn.style.top)
+        });
+      } else {
+        this.handleRefreshToday();
+      }
+    });
+  },
+
   handleLogout() {
     if (!confirm('确定要退出登录吗？')) return;
     Utils.storage.remove('user');
@@ -310,13 +383,13 @@ const App = {
   // Timeline
   async initTimeline(focusDate) {
     this.showLoading();
-    
+
     try {
       const start = this.addDays(focusDate, -3);
       const end = this.addDays(focusDate, 3);
-      
+
       await this.fetchGameRange(start, end, 'initial');
-      
+
       // Scroll to focus date
       setTimeout(() => {
         const dateEl = document.getElementById(`date-${focusDate}`);
@@ -327,7 +400,7 @@ const App = {
 
       // Load date options
       await this.loadDateOptions();
-      
+
       // Load current selections
       await this.fetchCurrentSelections(focusDate);
       await this.fetchFrozenList(this.state.currentModeId);
@@ -343,7 +416,7 @@ const App = {
 
   async fetchGameRange(start, end, type = 'initial') {
     const res = await API.getGamesRange(start, end);
-    
+
     if (!res) return;
 
     const newGroups = res.map(g => {
@@ -400,7 +473,7 @@ const App = {
     if (this.state.loadingMorePast) {
       html = `<div class="loading-more"><div class="spinner"></div></div>` + html;
     }
-    
+
     if (this.state.loadingMoreFuture) {
       html += `<div class="loading-more"><div class="spinner"></div></div>`;
     }
@@ -412,7 +485,7 @@ const App = {
   renderGameCard(game, date) {
     const isExpanded = this.state.activeGameId === game.external_id;
     const hasScore = game.status === 'Final' || game.status === 'InProgress' || (game.home_score ?? 0) > 0;
-    
+
     let html = `
       <div class="game-card ${isExpanded ? 'expanded' : ''}" data-game-id="${game.external_id}" data-date="${date}" data-has-players="${game.hasPlayers}">
         <div class="game-summary">
@@ -455,7 +528,7 @@ const App = {
   renderPlayersSection(game, date) {
     const isLive = game.status === 'InProgress' || game.status === 'Final';
     const sectionTitle = isLive ? '技术统计' : '选择球员';
-    
+
     let html = `
       <div class="players-section">
         <div class="divider"></div>
@@ -573,7 +646,7 @@ const App = {
       this.state.activeGameId = null;
     } else {
       this.state.activeGameId = gameId;
-      
+
       if (!hasPlayers) {
         this.syncGameData(date);
       }
@@ -620,6 +693,11 @@ const App = {
       this.state.gameList.sort((a, b) => a.date.localeCompare(b.date));
     }
     this.renderTimeline();
+
+    // Re-fetch current selections so right panel un-locks or updates score if selected date matches
+    if (this.state.selectedDate === date) {
+      this.fetchCurrentSelections(date);
+    }
   },
 
   async handleSelectPlayer(player, date) {
@@ -628,9 +706,9 @@ const App = {
       return;
     }
 
-    if (this.state.selectionInfo && 
-        this.state.selectionInfo.date === date && 
-        this.state.selectionInfo.canModify === false) {
+    if (this.state.selectionInfo &&
+      this.state.selectionInfo.date === date &&
+      this.state.selectionInfo.canModify === false) {
       this.showToast('已超过锁定时间，无法修改');
       return;
     }
@@ -650,7 +728,7 @@ const App = {
         playMode: this.state.currentModeId,
         gameDate: date
       });
-      
+
       this.showToast('锁定成功');
       await this.fetchFrozenList(this.state.currentModeId);
       await this.fetchCurrentSelections(date);
@@ -666,11 +744,11 @@ const App = {
       const targetDate = date || this.state.selectedDate || Utils.formatDate(new Date(), 'YYYY-MM-DD');
       const res = await API.getCurrentSelections(this.state.user.id, targetDate);
       const currentSelection = res?.modes ? res.modes[String(this.state.currentModeId)] : null;
-      
+
       this.state.selectionInfo = res;
 
       this.elements.currentSelectionName.textContent = currentSelection ? currentSelection.player_name : '未选择';
-      
+
       if (res?.deadline) {
         this.elements.lockTimeRow.style.display = 'flex';
         this.elements.selectionLockTime.textContent = Utils.formatDate(new Date(res.deadline), 'MM-DD HH:mm');
@@ -788,8 +866,8 @@ const App = {
       const dates = await API.getUpcomingDates();
       const options = (dates || []).map(date => {
         const d = new Date(date);
-        const label = Utils.isToday(date) 
-          ? `今日 ${Utils.formatDate(d, 'MM-DD')}` 
+        const label = Utils.isToday(date)
+          ? `今日 ${Utils.formatDate(d, 'MM-DD')}`
           : `${Utils.formatDate(d, 'MM-DD')} ${Utils.formatDate(d, 'WW')}`;
         return { date, label };
       });
@@ -803,7 +881,7 @@ const App = {
 
   renderDateOptions() {
     let html = '';
-    
+
     this.state.dateOptions.forEach(option => {
       const isActive = option.date === this.state.selectedDate;
       html += `
@@ -848,7 +926,7 @@ const App = {
     this.state.currentMode = modeKey;
     this.state.currentModeId = modeId;
     this.elements.currentModeName.textContent = CONFIG.MODE_NAMES[modeId];
-    
+
     this.hideModePanel();
     this.fetchCurrentSelections(this.state.selectedDate);
     this.fetchFrozenList(modeId);
@@ -862,7 +940,7 @@ const App = {
     const firstDate = this.state.gameList[0].date;
     const start = this.addDays(firstDate, -4);
     const end = this.addDays(firstDate, -1);
-    
+
     this.fetchGameRange(start, end, 'prepend');
   },
 
@@ -873,19 +951,19 @@ const App = {
     const lastDate = this.state.gameList[this.state.gameList.length - 1].date;
     const start = this.addDays(lastDate, 1);
     const end = this.addDays(lastDate, 4);
-    
+
     this.fetchGameRange(start, end, 'append');
   },
 
   // Actions
   async handleSyncSchedule() {
     this.showToast('正在更新赛程...');
-    
+
     try {
       const res = await API.syncSchedule();
       const count = res.games || res.totalGames || 0;
       this.showToast(`已更新${count}场比赛`);
-      
+
       const today = Utils.formatDate(new Date(), 'YYYY-MM-DD');
       await this.initTimeline(today);
     } catch (error) {
@@ -896,7 +974,7 @@ const App = {
   scrollToToday() {
     const today = Utils.formatDate(new Date(), 'YYYY-MM-DD');
     const inList = this.state.gameList.find(g => g.date === today);
-    
+
     if (!inList) {
       this.initTimeline(today);
     } else {
@@ -908,19 +986,35 @@ const App = {
   },
 
   async handleRefreshToday() {
+    const btn = this.elements.refreshScoresBtn;
+    if (btn.classList.contains('spinning')) return;
+
+    btn.classList.add('spinning');
     const today = Utils.formatDate(new Date(), 'YYYY-MM-DD');
-    
+    const yesterday = this.addDays(today, -1);
+
     try {
-      const res = await API.refreshScores(today);
-      
-      if (res && res.updated > 0) {
-        this.showToast(`已更新${res.updated}场比赛`);
+      const resToday = await API.refreshScores(today);
+      const resYesterday = await API.refreshScores(yesterday);
+
+      const totalUpdated = (resToday?.updated || 0) + (resYesterday?.updated || 0);
+
+      if (totalUpdated > 0) {
+        this.showToast(`已刷新${totalUpdated}场比赛`);
         await this.refreshDateInList(today);
+        if (this.state.selectedDate === yesterday) {
+          await this.refreshDateInList(yesterday);
+        }
+        await this.updateUserProfile();
       } else {
-        this.showToast('暂无更新');
+        this.showToast('比分已同步');
+        // Still fetch it just in case!
+        await this.updateUserProfile();
       }
     } catch (error) {
       this.showToast('刷新失败');
+    } finally {
+      setTimeout(() => btn.classList.remove('spinning'), 500);
     }
   },
 
@@ -946,10 +1040,24 @@ const App = {
     this.state.currentTab = page;
   },
 
+  async updateUserProfile() {
+    if (!this.state.user) return;
+    try {
+      const res = await API.getProfile(this.state.user.id);
+      if (res) {
+        this.state.user = { ...this.state.user, ...res };
+        Utils.storage.set('user', this.state.user);
+        if (this.state.currentTab === 'profile') {
+          this.showProfile();
+        }
+      }
+    } catch (e) { }
+  },
+
   // Profile
   async showProfile() {
     this.elements.profilePage.style.display = 'block';
-    
+
     if (this.state.user) {
       this.elements.userNickname.textContent = this.state.user.nickname || '球迷';
       this.elements.userAvatar.src = this._resolveAvatarUrl(this.state.user.avatarUrl);
@@ -957,7 +1065,7 @@ const App = {
       if (this.elements.userGroupName) {
         this.elements.userGroupName.textContent = '默认小组';
       }
-      
+
       this.loadUserRank();
       this.loadFrozenPlayers();
     }
@@ -1056,7 +1164,7 @@ const App = {
   async loadFrozenPlayers() {
     try {
       const list = await API.getFrozenPlayers(this.state.user.id);
-      
+
       if (list && list.length) {
         let html = '';
         list.forEach(item => {
@@ -1100,7 +1208,7 @@ const App = {
   async loadHistory() {
     try {
       const data = await API.getSelectionHistory(this.state.user.id, 50);
-      
+
       if (data && data.length) {
         let html = '';
         data.forEach(record => {
@@ -1139,17 +1247,107 @@ const App = {
     this.elements.leaderboardPage.style.display = 'none';
   },
 
+  // Scoreboard
+  _scoreboardBound: false,
+  _scoreboardData: { 1: [], 2: [], 3: [] },
+
+  async showScoreboardPage() {
+    this.elements.scoreboardPage.style.display = 'block';
+    const targetDate = this.state.selectedDate || window.Utils?.formatDate(new Date(), 'YYYY-MM-DD');
+    this.elements.scoreboardDateInput.value = targetDate;
+
+    if (!this._scoreboardBound) {
+      this.elements.scoreboardTabs.querySelectorAll('.sb-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          this.elements.scoreboardTabs.querySelectorAll('.sb-tab').forEach(t => t.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          this.renderScoreboard();
+        });
+      });
+      this.elements.scoreboardDateInput.addEventListener('change', (e) => {
+        this.loadDailyScoreboard(e.target.value);
+      });
+      this._scoreboardBound = true;
+    }
+
+    await this.loadDailyScoreboard(targetDate);
+  },
+
+  hideScoreboardPage() {
+    this.elements.scoreboardPage.style.display = 'none';
+  },
+
+  async loadDailyScoreboard(date) {
+    this.elements.scoreboardList.innerHTML = '<div class="loading-container"><div class="spinner"></div></div>';
+    try {
+      const res = await API.getDailyScoreboard(date);
+      this._scoreboardData = res?.modes || { 1: [], 2: [], 3: [] };
+      this.renderScoreboard();
+    } catch (error) {
+      console.error('Scoreboard load error:', error);
+      this.elements.scoreboardList.innerHTML = '<div class="no-players">加载失败</div>';
+    }
+  },
+
+  renderScoreboard() {
+    const activeTab = this.elements.scoreboardTabs.querySelector('.sb-tab.active');
+    const mode = activeTab ? parseInt(activeTab.dataset.mode) : 1;
+    const data = this._scoreboardData[mode] || [];
+
+    let formula = '';
+    if (mode === 1) formula = '常规模式：实际得分 + 排名加分';
+    else if (mode === 2) formula = '正58模式：10 + 5.8 × (实际得分 - 赛季均分)';
+    else if (mode === 3) formula = '负58模式：10 - 5.8 × (实际得分 - 赛季均分)';
+    this.elements.scoreboardFormula.textContent = formula;
+
+    if (!data.length) {
+      this.elements.scoreboardList.innerHTML = '<div class="no-players">暂无选择</div>';
+      return;
+    }
+
+    let html = '';
+    data.forEach(row => {
+      const scoreNum = row.total_score !== null ? row.total_score : '--';
+      const actualText = row.actual_score !== null ? `实际 ${row.actual_score}分` : '未结算';
+      const avgText = row.season_avg ? ` (均 ${row.season_avg})` : '';
+
+      let calcDetail = '';
+      if (row.total_score !== null) {
+        if (mode === 1) calcDetail = `${row.base_score}原始 + ${row.bonus_score}奖惩`;
+        else {
+          const sign = mode === 2 ? '+' : '-';
+          calcDetail = `10 ${sign} 5.8 × (${row.actual_score} - ${row.season_avg})`;
+        }
+      }
+
+      html += `
+        <div class="sc-card">
+          <div class="sc-header">
+            <span class="sc-user">${row.user_name}</span>
+            <span class="sc-total ${row.total_score !== null && row.total_score >= 0 ? 'positive' : 'negative'}">${scoreNum}</span>
+          </div>
+          <div class="sc-body">
+            <div class="sc-player">选择: ${row.player_name}${avgText}</div>
+            <div class="sc-actual">${actualText}</div>
+          </div>
+          ${calcDetail ? `<div class="sc-calc">${calcDetail}</div>` : ''}
+        </div>
+      `;
+    });
+    this.elements.scoreboardList.innerHTML = html;
+  },
+
   async loadLeaderboard() {
     try {
       const data = await API.getAllUsers(100);
-      
+
       if (data && data.length) {
         let html = '';
         data.forEach((user, index) => {
           const rank = index + 1;
           const isCurrentUser = user.id === this.state.user.id;
           const rankClass = rank <= 3 ? `top-${rank}` : 'normal';
-          
+
           html += `
             <div class="leaderboard-item ${isCurrentUser ? 'current-user' : ''}" data-user-id="${user.id}" data-user-name="${user.nickname || '球迷'}">
               <div class="rank-num ${rankClass}">${rank}</div>
@@ -1259,7 +1457,7 @@ const App = {
   showToast(message, duration = 2000) {
     this.elements.toast.textContent = message;
     this.elements.toast.classList.add('show');
-    
+
     setTimeout(() => {
       this.elements.toast.classList.remove('show');
     }, duration);
