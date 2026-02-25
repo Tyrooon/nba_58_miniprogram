@@ -165,7 +165,13 @@ export const removeFrozenPlayer = async (params: { userId: number; playerId: num
 };
 
 export const purgeExpiredFrozen = async () => {
-  await db.prepare(`DELETE FROM frozen_players WHERE expires_at < date('now')`).run();
+  try {
+    await db.prepare(`DELETE FROM frozen_players WHERE expires_at < date('now')`).run();
+    console.log('[purgeExpiredFrozen] Completed successfully');
+  } catch (error) {
+    console.error('[purgeExpiredFrozen] Error:', error);
+    // Don't throw, just log
+  }
 };
 
 /**
@@ -178,7 +184,7 @@ export const getLeaderboard = async (limit: number = 100) => {
     WHERE total_score > 0
     ORDER BY total_score DESC
     LIMIT ?
-  `).all([limit]) as any[];
+  `).all([limit]) as unknown as any[];
   
   return users.map((user: any, index: number) => ({
     rank: index + 1,
@@ -198,7 +204,7 @@ export const getAllUsers = async (limit: number = 100) => {
     FROM users
     ORDER BY total_score DESC, created_at ASC
     LIMIT ?
-  `).all([limit]) as any[];
+  `).all([limit]) as unknown as any[];
   
   return users.map((user: any, index: number) => ({
     rank: index + 1,

@@ -1,269 +1,250 @@
 import sqlite3 from 'sqlite3';
-import fs from 'fs';
-import { paths } from './config';
+import path from 'path';
 
-if (!fs.existsSync(paths.data)) {
-  fs.mkdirSync(paths.data, { recursive: true });
-}
+// Use __dirname directly in CommonJS context
+const dbPath = path.join(__dirname, '..', 'nba_58.db');
+const db = new sqlite3.Database(dbPath);
 
-const sqlite = sqlite3.verbose();
+const bootstrap = () => {
+  // Create tables
+  db.exec(`
+    -- Users table
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nickname TEXT,
+      avatar TEXT,
+      avatar_url TEXT,
+      openid TEXT UNIQUE,
+      username TEXT UNIQUE,
+      password TEXT,
+      score INTEGER DEFAULT 0,
+      total_score INTEGER DEFAULT 0,
+      last_active TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
 
-class Database {
-  private db: sqlite3.Database;
+    -- Games table
+    CREATE TABLE IF NOT EXISTS games (
+      external_id TEXT PRIMARY KEY,
+      game_date TEXT NOT NULL,
+      status TEXT DEFAULT 'scheduled',
+      tipoff TEXT,
+      home_team_id TEXT,
+      home_team_name TEXT,
+      visitor_team_id TEXT,
+      visitor_team_name TEXT,
+      home_score INTEGER,
+      visitor_score INTEGER,
+      season INTEGER,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
 
-  constructor(filename: string) {
-    this.db = new sqlite.Database(filename);
-  }
+    -- Selections table
+    CREATE TABLE IF NOT EXISTS selections (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      game_id TEXT NOT NULL,
+      game_date TEXT NOT NULL,
+      player_id TEXT NOT NULL,
+      player_name TEXT NOT NULL,
+      play_mode INTEGER NOT NULL,
+      points REAL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY(user_id) REFERENCES users(id),
+      FOREIGN KEY(game_id) REFERENCES games(external_id)
+    );
 
-  prepare(sql: string) {
-    // FIX: Replace @param with $param for sqlite3 compatibility
-    // better-sqlite3 uses @id, sqlite3 prefers $id or :id.
-    // We will normalize everything to $id.
-    const normalizedSql = sql.replace(/@(\w+)/g, '$$$1');
-    
-    const stmt = this.db.prepare(normalizedSql);
-    
-    return {
-      run: (params: any = {}): Promise<any> => {
-        return new Promise((resolve, reject) => {
-          stmt.run(this.flattenParams(params), function (err) {
-            if (err) reject(err);
-            else resolve({ changes: this.changes, lastInsertRowid: this.lastID });
-          });
-        });
-      },
-      get: (params: any = {}): Promise<any> => {
-        return new Promise((resolve, reject) => {
-          stmt.get(this.flattenParams(params), (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-          });
-        });
-      },
-      all: (params: any = {}): Promise<any[]> => {
-        return new Promise((resolve, reject) => {
-          stmt.all(this.flattenParams(params), (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-          });
-        });
-      }
-    };
-  }
+    -- Player game log table
+    CREATE TABLE IF NOT EXISTS player_game_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      player_sb_id TEXT NOT NULL,
+      game_date TEXT NOT NULL,
+      player_name TEXT NOT NULL,
+      team_name TEXT,
+      team_id TEXT NOT NULL,
+      team_abbr TEXT,
+      position TEXT,
+      season INTEGER NOT NULL,
+      points REAL NOT NULL,
+      rebounds INTEGER DEFAULT 0,
+      assists INTEGER DEFAULT 0,
+      minutes INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(player_sb_id, game_date)
+    );
 
-  exec(sql: string) {
-    return new Promise((resolve, reject) => {
-      this.db.exec(sql, (err) => {
-        if (err) reject(err);
-        else resolve(true);
-      });
-    });
-  }
+    -- Players table
+    CREATE TABLE IF NOT EXISTS players (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      team_id TEXT NOT NULL,
+      position TEXT,
+      is_rookie INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
 
-  transaction(fn: () => void) {
-    return async () => {
-      // Simple async transaction wrapper
-      // Note: sqlite3 executes statements sequentially in its internal queue, 
-      // but for async/await safety we use explicit BEGIN/COMMIT.
-      await this.exec('BEGIN TRANSACTION');
-      try {
-        await fn(); 
-        await this.exec('COMMIT');
-      } catch (error) {
-        await this.exec('ROLLBACK');
-        throw error;
-      }
-    };
-  }
+    -- Frozen players table
+    CREATE TABLE IF NOT EXISTS frozen_players (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      player_id INTEGER NOT NULL,
+      player_name TEXT NOT NULL,
+      play_mode INTEGER NOT NULL DEFAULT 1,
+      expires_at TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE (user_id, play_mode, player_id, expires_at),
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );
 
-  private flattenParams(params: any) {
-    // sqlite3 expects array [val1, val2] or object { $key: val }
-    
-    // Case 1: Array - pass through
-    if (Array.isArray(params)) {
-      return params;
+    -- Manager Mode Tables
+    CREATE TABLE IF NOT EXISTS manager_rosters (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      player_id TEXT NOT NULL,
+      player_type TEXT NOT NULL,
+      is_starter INTEGER DEFAULT 0,
+      is_injured INTEGER DEFAULT 0,
+      injured_since TEXT,
+      acquired_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS manager_weekly_scores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      week_start TEXT NOT NULL,
+      total_points REAL DEFAULT 0,
+      rank INTEGER,
+      score INTEGER,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS manager_drafts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      player_id TEXT NOT NULL,
+      draft_order INTEGER,
+      round INTEGER,
+      draft_type TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS manager_trades (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_user_id TEXT NOT NULL,
+      to_user_id TEXT NOT NULL,
+      trade_details TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      votes_for INTEGER DEFAULT 0,
+      votes_against INTEGER DEFAULT 0,
+      FOREIGN KEY(from_user_id) REFERENCES users(id),
+      FOREIGN KEY(to_user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS manager_trade_votes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      trade_id INTEGER NOT NULL,
+      user_id TEXT NOT NULL,
+      vote INTEGER NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY(trade_id) REFERENCES manager_trades(id),
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS manager_reshuffles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      retained_players TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );
+
+    -- Daily Players table (for daily stats)
+    CREATE TABLE IF NOT EXISTS daily_players (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      game_date TEXT NOT NULL,
+      player_id TEXT NOT NULL,
+      player_name TEXT NOT NULL,
+      team_id TEXT,
+      team_name TEXT,
+      position TEXT DEFAULT '',
+      season_avg REAL DEFAULT 0,
+      stats_points REAL DEFAULT 0,
+      stats_rebounds INTEGER DEFAULT 0,
+      stats_assists INTEGER DEFAULT 0,
+      stats_status TEXT DEFAULT 'scheduled',
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(game_date, player_id)
+    );
+
+    -- Season Aggregate Log
+    CREATE TABLE IF NOT EXISTS season_aggregate_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      game_date TEXT NOT NULL,
+      processed_at TEXT NOT NULL,
+      UNIQUE(game_date)
+    );
+
+    -- Player Season Totals
+    CREATE TABLE IF NOT EXISTS player_season_totals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      season INTEGER NOT NULL,
+      player_id TEXT NOT NULL,
+      player_name TEXT NOT NULL,
+      team_id TEXT,
+      team_name TEXT,
+      games_played INTEGER DEFAULT 0,
+      total_points REAL DEFAULT 0,
+      avg_points REAL DEFAULT 0,
+      last_game_date TEXT,
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(season, player_id)
+    );
+
+    -- SB Fetch Log (for tracking data syncs)
+    CREATE TABLE IF NOT EXISTS sb_fetch_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date_key TEXT NOT NULL,
+      games_count INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(date_key)
+    );
+
+    -- Indexes
+    CREATE INDEX IF NOT EXISTS idx_selections_user ON selections(user_id);
+    CREATE INDEX IF NOT EXISTS idx_selections_game ON selections(game_id);
+    CREATE INDEX IF NOT EXISTS idx_selections_user_game ON selections(user_id, game_id);
+    CREATE INDEX IF NOT EXISTS idx_frozen_players_user ON frozen_players(user_id);
+    CREATE INDEX IF NOT EXISTS idx_frozen_players_player ON frozen_players(player_id);
+    CREATE INDEX IF NOT EXISTS idx_player_game_log_season ON player_game_log(season);
+    CREATE INDEX IF NOT EXISTS idx_player_game_log_player ON player_game_log(player_sb_id, season);
+    CREATE INDEX IF NOT EXISTS idx_games_date ON games(game_date);
+
+    -- Manager Mode Indexes
+    CREATE INDEX IF NOT EXISTS idx_manager_rosters_user ON manager_rosters(user_id);
+    CREATE INDEX IF NOT EXISTS idx_manager_rosters_player ON manager_rosters(player_id);
+    CREATE INDEX IF NOT EXISTS idx_manager_weekly_scores_user_week ON manager_weekly_scores(user_id, week_start);
+    CREATE INDEX IF NOT EXISTS idx_manager_drafts_user ON manager_drafts(user_id);
+    CREATE INDEX IF NOT EXISTS idx_manager_trades_users ON manager_trades(from_user_id, to_user_id);
+    CREATE INDEX IF NOT EXISTS idx_manager_trade_votes_trade ON manager_trade_votes(trade_id);
+  `, (err) => {
+    if (err) {
+      console.error('Error creating tables:', err);
+    } else {
+      console.log('Database tables created successfully');
     }
-    
-    // Case 2: Object - prefix keys with $
-    if (typeof params === 'object' && params !== null) {
-      const newParams: any = {};
-      for (const key of Object.keys(params)) {
-        // If key already starts with $, keep it, otherwise add $
-        // The regex replace in prepare() changed @key to $key, so we need $key here.
-        const newKey = key.startsWith('$') ? key : '$' + key;
-        newParams[newKey] = params[key];
-      }
-      return newParams;
+  });
+
+  // Migrations for new columns
+  db.prepare(`PRAGMA table_info(frozen_players)`).all([], (err, rows) => {
+    if (err) {
+      console.error('Error checking frozen_players columns:', err);
+      return;
     }
-    
-    // Case 3: Single value (primitive) - this is tricky. 
-    // better-sqlite3 allows .get(id). sqlite3 usually expects array for positional args.
-    // If it's a primitive, wrap in array.
-    if (params !== undefined && params !== null && typeof params !== 'object') {
-        return [params];
-    }
-    
-    return params;
-  }
-}
-
-const db = new Database(paths.dbFile);
-
-const bootstrap = async () => {
-    // Note: We split statements because db.exec might handle one at a time reliably, 
-    // though sqlite3 exec() supports multiple.
-    // For safety with IF NOT EXISTS, one big string is fine.
-    await db.exec(`
-        CREATE TABLE IF NOT EXISTS users (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          openid TEXT NOT NULL UNIQUE,
-          nickname TEXT,
-          avatar_url TEXT,
-          total_score REAL DEFAULT 0,
-          created_at TEXT DEFAULT (datetime('now'))
-        );
-    
-        CREATE TABLE IF NOT EXISTS games (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          external_id TEXT NOT NULL UNIQUE, 
-          game_date TEXT NOT NULL,
-          status TEXT,
-          tipoff TEXT,
-          home_team_id INTEGER,
-          home_team_name TEXT,
-          visitor_team_id INTEGER,
-          visitor_team_name TEXT,
-          home_score INTEGER DEFAULT 0,
-          visitor_score INTEGER DEFAULT 0,
-          season INTEGER,
-          created_at TEXT DEFAULT (datetime('now'))
-        );
-    
-        CREATE TABLE IF NOT EXISTS daily_players (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          game_date TEXT NOT NULL,
-          team_id INTEGER NOT NULL,
-          team_name TEXT NOT NULL,
-          player_id INTEGER NOT NULL,
-          player_name TEXT NOT NULL,
-          position TEXT,
-          season_avg REAL DEFAULT 0,
-          created_at TEXT DEFAULT (datetime('now')),
-          UNIQUE (game_date, player_id)
-        );
-    
-        CREATE TABLE IF NOT EXISTS selections (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER NOT NULL,
-          game_date TEXT NOT NULL,
-          play_mode INTEGER NOT NULL,
-          player_id INTEGER NOT NULL,
-          player_name TEXT NOT NULL,
-          team_id INTEGER,
-          team_name TEXT,
-          player_season_avg REAL,
-          player_actual_score REAL,
-          base_score REAL,
-          bonus_score REAL DEFAULT 0,
-          total_score REAL,
-          created_at TEXT DEFAULT (datetime('now')),
-          UNIQUE (user_id, game_date, play_mode),
-          FOREIGN KEY(user_id) REFERENCES users(id)
-        );
-    
-        CREATE TABLE IF NOT EXISTS frozen_players (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER NOT NULL,
-          player_id INTEGER NOT NULL,
-          player_name TEXT NOT NULL,
-          play_mode INTEGER NOT NULL DEFAULT 1,
-          expires_at TEXT NOT NULL,
-          created_at TEXT DEFAULT (datetime('now')),
-          UNIQUE (user_id, play_mode, player_id, expires_at),
-          FOREIGN KEY(user_id) REFERENCES users(id)
-        );
-
-        CREATE TABLE IF NOT EXISTS player_season_totals (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          season INTEGER NOT NULL,
-          player_id INTEGER NOT NULL,
-          player_name TEXT NOT NULL,
-          team_id INTEGER,
-          team_name TEXT,
-          games_played INTEGER DEFAULT 0,
-          total_points INTEGER DEFAULT 0,
-          avg_points REAL DEFAULT 0,
-          last_game_date TEXT,
-          updated_at TEXT DEFAULT (datetime('now')),
-          UNIQUE (season, player_id)
-        );
-
-        CREATE TABLE IF NOT EXISTS season_aggregate_log (
-          game_date TEXT PRIMARY KEY,
-          processed_at TEXT DEFAULT (datetime('now'))
-        );
-
-        CREATE TABLE IF NOT EXISTS player_game_log (
-          player_sb_id TEXT NOT NULL,
-          game_date TEXT NOT NULL,
-          player_name TEXT NOT NULL,
-          team_name TEXT DEFAULT '',
-          team_id INTEGER DEFAULT 0,
-          team_abbr TEXT DEFAULT '',
-          position TEXT DEFAULT '',
-          points INTEGER DEFAULT 0,
-          rebounds INTEGER DEFAULT 0,
-          assists INTEGER DEFAULT 0,
-          minutes INTEGER DEFAULT 0,
-          season INTEGER NOT NULL,
-          PRIMARY KEY(player_sb_id, game_date)
-        );
-
-        CREATE TABLE IF NOT EXISTS sb_fetch_log (
-          date_key TEXT NOT NULL,
-          season INTEGER NOT NULL,
-          games_count INTEGER DEFAULT 0,
-          players_count INTEGER DEFAULT 0,
-          fetched_at TEXT DEFAULT (datetime('now')),
-          PRIMARY KEY(date_key, season)
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_player_game_log_season ON player_game_log(season);
-        CREATE INDEX IF NOT EXISTS idx_player_game_log_player ON player_game_log(player_sb_id, season);
-        
-        CREATE INDEX IF NOT EXISTS idx_games_date ON games(game_date);
-    `);
-
-    // Migrations for new columns
-    try {
-      await db.exec(`ALTER TABLE daily_players ADD COLUMN stats_points INTEGER DEFAULT 0;`);
-    } catch (e) { /* ignore if exists */ }
-    try {
-      await db.exec(`ALTER TABLE daily_players ADD COLUMN stats_rebounds INTEGER DEFAULT 0;`);
-    } catch (e) { /* ignore if exists */ }
-    try {
-      await db.exec(`ALTER TABLE daily_players ADD COLUMN stats_assists INTEGER DEFAULT 0;`);
-    } catch (e) { /* ignore if exists */ }
-    try {
-      await db.exec(`ALTER TABLE daily_players ADD COLUMN stats_status TEXT DEFAULT 'ACTIVE';`);
-    } catch (e) { /* ignore if exists */ }
-
-    // Auth columns migration
-    try {
-      await db.exec(`ALTER TABLE users ADD COLUMN username TEXT;`);
-    } catch (e) { /* ignore if exists */ }
-    try {
-      await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username);`);
-    } catch (e) { /* ignore if exists */ }
-    try {
-      await db.exec(`ALTER TABLE users ADD COLUMN password_hash TEXT;`);
-    } catch (e) { /* ignore if exists */ }
-
-    // Frozen players play_mode migration
-    const frozenColumns = (await db.prepare(`PRAGMA table_info(frozen_players)`).all()) as any[];
+    const frozenColumns = rows as any[];
     const hasPlayMode = frozenColumns?.some((col: any) => col.name === 'play_mode');
     if (!hasPlayMode) {
-      await db.exec(`
+      db.exec(`
         BEGIN TRANSACTION;
         ALTER TABLE frozen_players RENAME TO frozen_players_old;
         CREATE TABLE frozen_players (
@@ -281,8 +262,122 @@ const bootstrap = async () => {
         SELECT user_id, player_id, player_name, 1, expires_at, created_at FROM frozen_players_old;
         DROP TABLE frozen_players_old;
         COMMIT;
-      `);
+      `, (err) => {
+        if (err) {
+          console.error('Error migrating frozen_players table:', err);
+        } else {
+          console.log('Migrated frozen_players table successfully');
+        }
+      });
     }
+  });
+
+  // Migration for games table schema change
+  db.get(`SELECT name FROM sqlite_master WHERE type='table' AND name='games' AND sql LIKE '%away_team%'`, (err, row) => {
+    if (row) {
+      // Old schema detected, need to migrate
+      db.exec(`
+        BEGIN TRANSACTION;
+        ALTER TABLE games RENAME TO games_old;
+        CREATE TABLE games (
+          external_id TEXT PRIMARY KEY,
+          game_date TEXT NOT NULL,
+          status TEXT DEFAULT 'scheduled',
+          tipoff TEXT,
+          home_team_id TEXT,
+          home_team_name TEXT,
+          visitor_team_id TEXT,
+          visitor_team_name TEXT,
+          home_score INTEGER,
+          visitor_score INTEGER,
+          season INTEGER,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+        INSERT INTO games (external_id, game_date, status, home_team_name, visitor_team_name, home_score, visitor_score, season, created_at)
+        SELECT id, game_date, status, home_team, away_team, home_score, away_score, season, created_at FROM games_old;
+        DROP TABLE games_old;
+        COMMIT;
+      `, (err) => {
+        if (err) {
+          console.error('Error migrating games table:', err);
+        } else {
+          console.log('Migrated games table successfully');
+        }
+      });
+    }
+  });
+
+  // Migration for player_game_log table schema change
+  db.get(`SELECT name FROM sqlite_master WHERE type='table' AND name='player_game_log' AND sql LIKE '%player_id%'`, (err, row) => {
+    if (row) {
+      // Old schema detected, need to migrate
+      db.exec(`
+        BEGIN TRANSACTION;
+        ALTER TABLE player_game_log RENAME TO player_game_log_old;
+        CREATE TABLE player_game_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          player_sb_id TEXT NOT NULL,
+          game_date TEXT NOT NULL,
+          player_name TEXT NOT NULL,
+          team_name TEXT,
+          team_id TEXT NOT NULL,
+          team_abbr TEXT,
+          position TEXT,
+          season INTEGER NOT NULL,
+          points REAL NOT NULL,
+          rebounds INTEGER DEFAULT 0,
+          assists INTEGER DEFAULT 0,
+          minutes INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now')),
+          UNIQUE(player_sb_id, game_date)
+        );
+        INSERT INTO player_game_log (player_sb_id, game_date, player_name, team_id, season, points, rebounds, assists, created_at)
+        SELECT player_id, game_date, player_name, team_id, season, points, rebounds, assists, created_at FROM player_game_log_old;
+        DROP TABLE player_game_log_old;
+        COMMIT;
+      `, (err) => {
+        if (err) {
+          console.error('Error migrating player_game_log table:', err);
+        } else {
+          console.log('Migrated player_game_log table successfully');
+        }
+      });
+    }
+  });
+
+  // Migration for users table schema change
+  db.get(`SELECT name FROM sqlite_master WHERE type='table' AND name='users' AND sql NOT LIKE '%avatar_url%'`, (err, row) => {
+    if (row) {
+      // Old schema detected, need to migrate
+      db.exec(`
+        BEGIN TRANSACTION;
+        ALTER TABLE users RENAME TO users_old;
+        CREATE TABLE users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nickname TEXT,
+          avatar TEXT,
+          avatar_url TEXT,
+          openid TEXT UNIQUE,
+          username TEXT UNIQUE,
+          password TEXT,
+          score INTEGER DEFAULT 0,
+          total_score INTEGER DEFAULT 0,
+          last_active TEXT,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+        INSERT INTO users (id, nickname, avatar, openid, score, last_active, created_at)
+        SELECT id, nickname, avatar, openid, score, last_active, created_at FROM users_old;
+        DROP TABLE users_old;
+        COMMIT;
+      `, (err) => {
+        if (err) {
+          console.error('Error migrating users table:', err);
+        } else {
+          console.log('Migrated users table successfully');
+        }
+      });
+    }
+  });
 };
 
 bootstrap();

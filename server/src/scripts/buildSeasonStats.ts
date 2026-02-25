@@ -190,7 +190,7 @@ async function main() {
   // 获取已处理日期
   const processedRows = await db.prepare(
     'SELECT date_key FROM sb_fetch_log WHERE season = ?'
-  ).all([season]) as any[];
+  ).all([season]) as unknown as any[];
   const processed = new Set(processedRows.map((r: any) => r.date_key));
 
   // 生成待处理日期列表
@@ -289,7 +289,7 @@ async function printSummary(season: number) {
     HAVING gp >= 10
     ORDER BY ppg DESC
     LIMIT 10
-  `).all([season]) as any[];
+  `).all([season]) as unknown as any[];
 
   if (topPlayers.length > 0) {
     console.log(`\n  Top scorers (≥10 games):`);

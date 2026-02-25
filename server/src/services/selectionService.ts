@@ -30,7 +30,7 @@ const getUpcomingGameStmt = db.prepare(
 
 const computeModifyWindow = async (dateKey: string) => {
   const now = nowInChina();
-  const firstGame = await getFirstGameStmt.get([dateKey]);
+  const firstGame = await getFirstGameStmt.get([dateKey]) as any;
   if (!firstGame || !firstGame.tipoff) {
     return { lockDate: dateKey, deadline: null, canModify: false };
   }
@@ -41,7 +41,7 @@ const computeModifyWindow = async (dateKey: string) => {
     return { lockDate: dateKey, deadline: lockTime, canModify: true };
   }
 
-  const statuses = await getGameStatusesStmt.all([dateKey]);
+  const statuses = await getGameStatusesStmt.all([dateKey]) as unknown as any[];
   const hasGames = statuses.length > 0;
   const allFinished = hasGames && statuses.every((row: any) => row.status === 'Final');
 
@@ -71,12 +71,12 @@ export const createSelection = async (payload: SelectionPayload) => {
   }
 
   const dateKey = toDateKey(payload.gameDate);
-  const frozen = await getUserFrozenPlayers(payload.userId, payload.playMode);
+  const frozen = await getUserFrozenPlayers(payload.userId, payload.playMode) as unknown as any[];
   if (frozen.some((item) => item.player_id === payload.playerId)) {
     throw new Error('该球员仍处于冷冻期');
   }
 
-  const snapshot = await getPlayerSnapshotStmt.get([dateKey, payload.playerId]);
+  const snapshot = await getPlayerSnapshotStmt.get([dateKey, payload.playerId]) as any;
   if (!snapshot) {
     throw new Error('未找到该日期的球员数据，请先同步赛程/球员');
   }
@@ -84,7 +84,7 @@ export const createSelection = async (payload: SelectionPayload) => {
   // Throws if超过锁定时间
   await ensureCanModify(dateKey);
 
-  const existing = await getSelectionStmt.get([payload.userId, dateKey, payload.playMode]);
+  const existing = await getSelectionStmt.get([payload.userId, dateKey, payload.playMode]) as any;
 
   try {
     if (existing) {
@@ -155,7 +155,8 @@ export const createSelection = async (payload: SelectionPayload) => {
       selectedDate: dateKey,
     });
 
-    return await db.prepare(`SELECT * FROM selections WHERE id = ?`).get([insert.lastInsertRowid]);
+    const insertResult = insert as any;
+    return await db.prepare(`SELECT * FROM selections WHERE id = ?`).get([insertResult.lastInsertRowid]) as any;
   } catch (err) {
     if (err instanceof Error && err.message.includes('UNIQUE')) {
       throw new Error('今日该玩法已选择过球员');
@@ -201,7 +202,7 @@ export const getUserSelectionsForView = async (userId: number, limit = 30) => {
     WHERE s.user_id = ?
     ORDER BY s.game_date DESC, s.play_mode ASC
     LIMIT ?
-  `).all([userId, limit]) as any[];
+  `).all([userId, limit]) as unknown as any[];
 
   return rows.map((r: any) => ({
     gameDate: r.game_date,
@@ -217,7 +218,7 @@ export const getUserSelectionsForView = async (userId: number, limit = 30) => {
 };
 
 export const getSelectionsByDate = async (date: string) =>
-  await db.prepare(`SELECT * FROM selections WHERE game_date = ?`).all([date]);
+  await db.prepare(`SELECT * FROM selections WHERE game_date = ?`).all([date]) as unknown as any[];
 
 export const saveSelectionScores = async (rows: Array<{ id: number; actual: number; base: number; bonus: number; total: number }>) => {
   const updateStmt = db.prepare(
@@ -232,7 +233,7 @@ export const saveSelectionScores = async (rows: Array<{ id: number; actual: numb
 
 const resolveSelectionDate = async (dateInput?: string) => {
   if (dateInput) return toDateKey(dateInput);
-  const upcoming = await getUpcomingGameStmt.get();
+  const upcoming = await getUpcomingGameStmt.get() as any;
   if (upcoming?.game_date) {
     return upcoming.game_date;
   }
@@ -241,7 +242,7 @@ const resolveSelectionDate = async (dateInput?: string) => {
 
 export const getCurrentSelectionSummary = async (userId: number, dateInput?: string) => {
   const dateKey = await resolveSelectionDate(dateInput);
-  const selections = await getSelectionsByDateStmt.all([userId, dateKey]);
+  const selections = await getSelectionsByDateStmt.all([userId, dateKey]) as unknown as any[];
   const map: Record<string, any> = {};
   selections.forEach((row: any) => {
     map[String(row.play_mode)] = row;

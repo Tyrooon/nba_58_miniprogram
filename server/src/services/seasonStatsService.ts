@@ -18,7 +18,7 @@ const getEligibleDates = async () => {
     .all([config.currentSeason]);
 
   const now = nowInChina();
-  return (rows as any[])
+  return (rows as unknown as any[])
     .filter((row) => row?.last_tipoff)
     .filter((row) => now.isAfter(dayjs(row.last_tipoff).add(AGGREGATE_DELAY_HOURS, 'hour')));
 };
@@ -67,7 +67,7 @@ export const aggregateSeasonStatsForDate = async (dateKey: string) => {
        FROM daily_players
        WHERE game_date = ?`
     )
-    .all([dateKey]) as any[];
+    .all([dateKey]) as unknown as any[];
 
   if (!players.length) {
     return { date: dateKey, skipped: 'no_players' };
@@ -122,7 +122,7 @@ export const getSeasonAveragesFromDb = async (season: number) => {
     { avg: number; teamId?: number; teamName?: string; playerName?: string }
   > = {};
 
-  (rows as any[]).forEach((row) => {
+  (rows as unknown as any[]).forEach((row) => {
     map[row.player_id] = {
       avg: Number(row.avg_points ?? 0),
       teamId: row.team_id,

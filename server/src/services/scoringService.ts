@@ -50,7 +50,7 @@ const getStatsForDate = async (dateKey: string): Promise<Record<number, number>>
   const rows = await db.prepare(
     `SELECT player_id, stats_points FROM daily_players
        WHERE game_date = ? AND stats_status = 'played' AND stats_points IS NOT NULL`
-  ).all([dateKey]) as any[];
+  ).all([dateKey]) as unknown as any[];
 
   const statsMap: Record<number, number> = {};
   for (const row of rows) {
@@ -62,7 +62,7 @@ const getStatsForDate = async (dateKey: string): Promise<Record<number, number>>
 export const computeDayScores = async (targetDate?: string) => {
   const dateKey = toDateKey(targetDate);
   // Await async DB call
-  const selections = await getSelectionsByDate(dateKey);
+  const selections = await getSelectionsByDate(dateKey) as any[];
   const pendingSelections = selections.filter((row: any) => row.player_actual_score === null);
 
   if (!pendingSelections.length) {

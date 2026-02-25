@@ -486,7 +486,7 @@ export async function getBBRAllPlayerStats(): Promise<BBRPlayer[]> {
         GROUP BY player_sb_id
       ) b ON a.player_sb_id = b.player_sb_id AND a.game_date = b.last_date
       WHERE a.season = ?
-    `).all([season, season]) as any[];
+    `).all([season, season]) as unknown as any[];
 
     if (rows.length >= 100) {
       const players: BBRPlayer[] = rows.map((r: any) => ({

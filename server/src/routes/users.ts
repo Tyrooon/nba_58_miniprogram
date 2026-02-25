@@ -155,12 +155,12 @@ router.post('/:userId/avatar', (req, res, next) => {
 });
 
 router.get('/:userId/frozen', async (req, res) => {
-  const user = await getUserById(Number(req.params.userId));
+  const user = await getUserById(Number(req.params.userId)) as any;
   if (!user) {
     return res.status(404).json({ message: '用户不存在' });
   }
   const playMode = req.query.playMode ? Number(req.query.playMode) : undefined;
-  const list = await getUserFrozenPlayers(user.id, playMode);
+  const list = await getUserFrozenPlayers(user.id, playMode) as unknown as any[];
   res.json(list);
 });
 

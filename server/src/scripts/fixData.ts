@@ -42,7 +42,7 @@ async function deleteTestAccounts() {
     const testUsers = await db.prepare(
         `SELECT id, nickname, username, total_score, created_at
      FROM users WHERE nickname = 'gqw'`
-    ).all([]) as any[];
+    ).all([]) as unknown as any[];
 
     if (testUsers.length === 0) {
         console.log('  No gqw accounts found, skipping.');
@@ -95,7 +95,7 @@ async function fixModeAvgAndScores() {
     WHERE s.play_mode IN (2, 3)
       AND s.player_actual_score IS NOT NULL
     ORDER BY s.game_date, s.player_name
-  `).all([]) as any[];
+  `).all([]) as unknown as any[];
 
     if (selections.length === 0) {
         console.log('  No scored mode-2/3 selections found, skipping.');
@@ -182,7 +182,7 @@ async function printLeaderboard() {
     SELECT nickname, username, total_score
     FROM users
     ORDER BY total_score DESC
-  `).all([]) as any[];
+  `).all([]) as unknown as any[];
 
     rows.forEach((r: any, i: number) => {
         console.log(`  ${i + 1}. ${(r.nickname ?? r.username ?? '?').padEnd(20)} ${r.total_score}`);

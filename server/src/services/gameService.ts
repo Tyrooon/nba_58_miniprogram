@@ -177,7 +177,7 @@ async function fixSeasonAvg(startDate: string, endDate: string) {
       GROUP BY player_sb_id
     ) b ON a.player_sb_id = b.player_sb_id AND a.game_date = b.last_date
     WHERE a.season = ?
-  `).all([season, season]) as any[];
+  `).all([season, season]) as unknown as any[];
 
   if (avgs.length === 0) return;
 
@@ -188,7 +188,7 @@ async function fixSeasonAvg(startDate: string, endDate: string) {
 
   const players = await db.prepare(
     `SELECT DISTINCT player_name FROM daily_players WHERE game_date >= ? AND game_date <= ?`
-  ).all([startDate, endDate]) as any[];
+  ).all([startDate, endDate]) as unknown as any[];
 
   let updated = 0;
   for (const p of players) {
@@ -243,20 +243,24 @@ export const syncDailyData = async (targetDate?: string) => {
 
   let totalGames = 0;
   for (const game of games) {
-    await insertGameStmt.run({
-      external_id: game.gameId,
-      game_date: game.gameDate,
-      status: game.status,
-      tipoff: game.gameTimeBeijing,
-      home_team_id: game.homeTeamId,
-      home_team_name: game.homeTeamNameCn,
-      visitor_team_id: game.awayTeamId,
-      visitor_team_name: game.awayTeamNameCn,
-      home_score: game.homeScore,
-      visitor_score: game.awayScore,
-      season: config.currentSeason,
-    });
-    totalGames++;
+    try {
+      await insertGameStmt.run({
+        external_id: game.gameId || '',
+        game_date: game.gameDate || '',
+        status: game.status || 'scheduled',
+        tipoff: game.gameTimeBeijing || null,
+        home_team_id: game.homeTeamId || null,
+        home_team_name: game.homeTeamNameCn || '',
+        visitor_team_id: game.awayTeamId || null,
+        visitor_team_name: game.awayTeamNameCn || '',
+        home_score: game.homeScore || 0,
+        visitor_score: game.awayScore || 0,
+        season: config.currentSeason,
+      });
+      totalGames++;
+    } catch (error) {
+      console.error(`[syncDailyData] Failed to insert game ${game.gameId}:`, error.message);
+    }
   }
 
   // 获取球员场均数据
@@ -289,7 +293,7 @@ export const syncDailyData = async (targetDate?: string) => {
   const existingDates = new Set<string>();
   const existingRows = await db.prepare(
     `SELECT DISTINCT game_date FROM daily_players WHERE game_date >= ? AND game_date <= ? AND stats_status = 'played'`
-  ).all([startDate, endDate]) as any[];
+  ).all([startDate, endDate]) as unknown as any[];
   for (const row of existingRows) existingDates.add(row.game_date);
 
   let totalPlayers = 0;
@@ -429,7 +433,7 @@ export const syncSingleDate = async (dateKey: string) => {
   // 1. 优先从数据库读取该日比赛
   let dbGames = await db.prepare(
     `SELECT * FROM games WHERE game_date = ? ORDER BY tipoff ASC`
-  ).all([dateKey]) as any[];
+  ).all([dateKey]) as unknown as any[];
 
   // 2. 如果数据库没有该日比赛，才去 NBA API 拉赛程
   if (dbGames.length === 0) {
@@ -444,16 +448,27 @@ export const syncSingleDate = async (dateKey: string) => {
       ON CONFLICT(external_id) DO UPDATE SET status=excluded.status, home_score=excluded.home_score, visitor_score=excluded.visitor_score
     `);
     for (const g of apiGames) {
-      await insertGameStmt.run({
-        external_id: g.gameId, game_date: g.gameDate, status: g.status, tipoff: g.gameTimeBeijing,
-        home_team_id: g.homeTeamId, home_team_name: g.homeTeamNameCn,
-        visitor_team_id: g.awayTeamId, visitor_team_name: g.awayTeamNameCn,
-        home_score: g.homeScore, visitor_score: g.awayScore, season: config.currentSeason,
-      });
+      try {
+        await insertGameStmt.run({
+          external_id: g.gameId || '', 
+          game_date: g.gameDate || '', 
+          status: g.status || 'scheduled', 
+          tipoff: g.gameTimeBeijing || null,
+          home_team_id: g.homeTeamId || null, 
+          home_team_name: g.homeTeamNameCn || '',
+          visitor_team_id: g.awayTeamId || null, 
+          visitor_team_name: g.awayTeamNameCn || '',
+          home_score: g.homeScore || 0, 
+          visitor_score: g.awayScore || 0, 
+          season: config.currentSeason,
+        });
+      } catch (error) {
+        console.error(`[syncSingleDate] Failed to insert game ${g.gameId}:`, error.message);
+      }
     }
     dbGames = await db.prepare(
       `SELECT * FROM games WHERE game_date = ? ORDER BY tipoff ASC`
-    ).all([dateKey]) as any[];
+    ).all([dateKey]) as unknown as any[];
   }
 
   // 3. 获取球员花名册（有 1 小时缓存，不会重复请求 API）
@@ -674,20 +689,24 @@ export const syncSeasonSchedule = async () => {
   
   let totalGames = 0;
   for (const game of games) {
-    await insertGameStmt.run({
-      external_id: game.gameId,
-      game_date: game.gameDate,
-      status: game.status,
-      tipoff: game.gameTimeBeijing,
-      home_team_id: game.homeTeamId,
-      home_team_name: game.homeTeamNameCn,
-      visitor_team_id: game.awayTeamId,
-      visitor_team_name: game.awayTeamNameCn,
-      home_score: game.homeScore,
-      visitor_score: game.awayScore,
-      season: config.currentSeason,
-    });
-    totalGames++;
+    try {
+      await insertGameStmt.run({
+        external_id: game.gameId || '',
+        game_date: game.gameDate || '',
+        status: game.status || 'scheduled',
+        tipoff: game.gameTimeBeijing || null,
+        home_team_id: game.homeTeamId || null,
+        home_team_name: game.homeTeamNameCn || '',
+        visitor_team_id: game.awayTeamId || null,
+        visitor_team_name: game.awayTeamNameCn || '',
+        home_score: game.homeScore || 0,
+        visitor_score: game.awayScore || 0,
+        season: config.currentSeason,
+      });
+      totalGames++;
+    } catch (error) {
+      console.error(`Failed to insert game ${game.gameId}:`, error.message);
+    }
   }
   
   console.log(`Synced ${totalGames} games to schedule`);
@@ -724,7 +743,7 @@ export const getUpcomingGameDates = async (limit: number = 7): Promise<string[]>
     ORDER BY game_date ASC
     LIMIT ?
   `);
-  const rows = await stmt.all([startDate, limit]) as any[];
+  const rows = await stmt.all([startDate, limit]) as unknown as any[];
   return rows.map(r => r.game_date);
 };
 
@@ -737,14 +756,14 @@ export const getGamesByDateRange = async (start: string, end: string) => {
     WHERE game_date >= ? AND game_date <= ?
     ORDER BY game_date ASC, tipoff ASC
   `);
-  const games = await stmt.all([start, end]) as any[];
+  const games = await stmt.all([start, end]) as unknown as any[];
   
   // 获取日期范围内的所有球员
   const playersStmt = db.prepare(`
     SELECT * FROM daily_players 
     WHERE game_date >= ? AND game_date <= ?
   `);
-  const allPlayers = await playersStmt.all([start, end]) as any[];
+  const allPlayers = await playersStmt.all([start, end]) as unknown as any[];
   
   // 按日期和球队分组球员
   const playersByDateAndTeam = new Map<string, Map<number, any[]>>();
@@ -797,31 +816,64 @@ export const getGamesByDateRange = async (start: string, end: string) => {
  * 获取指定日期的比赛及球员数据
  */
 export const getGamesWithPlayers = async (date: string) => {
-  // 获取比赛
-  const games = await db.prepare(`
-    SELECT * FROM games WHERE game_date = ? ORDER BY tipoff ASC
-  `).all([date]) as any[];
-  
-  // 获取球员
-  const players = await db.prepare(`
-    SELECT * FROM daily_players WHERE game_date = ?
-  `).all([date]) as any[];
-  
-  // 按球队分组球员
-  const playersByTeam = new Map<number, any[]>();
-  for (const player of players) {
-    if (!playersByTeam.has(player.team_id)) {
-      playersByTeam.set(player.team_id, []);
+  try {
+    // 获取比赛
+    const gamesResult = await new Promise<any[]>((resolve, reject) => {
+      db.prepare(`
+        SELECT * FROM games WHERE game_date = ? ORDER BY tipoff ASC
+      `).all([date], (err, rows) => {
+        if (err) {
+          console.error('[getGamesWithPlayers] DB error:', err);
+          reject(err);
+        } else {
+          console.log('[getGamesWithPlayers] DB returned:', rows);
+          resolve(rows as any[]);
+        }
+      });
+    });
+    
+    // 确保games是数组
+    const games = Array.isArray(gamesResult) ? gamesResult : [];
+    console.log(`[getGamesWithPlayers] Found ${games.length} games for ${date}`);
+
+    // 获取球员
+    const playersResult = await new Promise<any[]>((resolve, reject) => {
+      db.prepare(`
+        SELECT * FROM daily_players WHERE game_date = ?
+      `).all([date], (err, rows) => {
+        if (err) {
+          console.error('[getGamesWithPlayers] Players DB error:', err);
+          reject(err);
+        } else {
+          resolve(rows as any[]);
+        }
+      });
+    });
+    
+    // 确保players是数组
+    const players = Array.isArray(playersResult) ? playersResult : [];
+    console.log(`[getGamesWithPlayers] Found ${players.length} players for ${date}`);
+    
+    // 按球队分组球员
+    const playersByTeam = new Map<string, any[]>();
+    for (const player of players) {
+      if (!player.team_id) continue;
+      if (!playersByTeam.has(player.team_id)) {
+        playersByTeam.set(player.team_id, []);
+      }
+      playersByTeam.get(player.team_id)!.push(player);
     }
-    playersByTeam.get(player.team_id)!.push(player);
+    
+    // 组装结果（使用前端期望的字段名）
+    return games.filter(game => game != null).map(game => ({
+      ...game,
+      home_players: (playersByTeam.get(game.home_team_id) || []).sort((a: any, b: any) => (b.season_avg || 0) - (a.season_avg || 0)),
+      visitor_players: (playersByTeam.get(game.visitor_team_id) || []).sort((a: any, b: any) => (b.season_avg || 0) - (a.season_avg || 0)),
+    }));
+  } catch (error) {
+    console.error('[getGamesWithPlayers] Error:', error);
+    return [];
   }
-  
-  // 组装结果（使用前端期望的字段名）
-  return games.map(game => ({
-    ...game,
-    home_players: (playersByTeam.get(game.home_team_id) || []).sort((a: any, b: any) => (b.season_avg || 0) - (a.season_avg || 0)),
-    visitor_players: (playersByTeam.get(game.visitor_team_id) || []).sort((a: any, b: any) => (b.season_avg || 0) - (a.season_avg || 0)),
-  }));
 };
 
 /**
@@ -858,7 +910,7 @@ export const getGameTimeline = async (startDate: string, days: number) => {
   for (let i = 0; i < days; i++) {
     const date = addDays(startDate, i);
     const games = await getGamesForDate(date);
-    timeline.push({ date, games: games as any[] });
+    timeline.push({ date, games: games as unknown as any[] });
   }
   
   return timeline;

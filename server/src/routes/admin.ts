@@ -10,7 +10,7 @@ router.get('/daily-scoreboard', async (req, res, next) => {
   try {
     const dateKey = toDateKey(req.query.date as string | undefined);
     const rows = await db.prepare(`
-      SELECT 
+      SELECT
         s.play_mode,
         u.nickname as user_name,
         s.player_name,
@@ -23,7 +23,7 @@ router.get('/daily-scoreboard', async (req, res, next) => {
       JOIN users u ON s.user_id = u.id
       WHERE s.game_date = ?
       ORDER BY s.play_mode ASC, s.total_score DESC
-    `).all([dateKey]) as any[];
+    `).all([dateKey]) as unknown as any[];
 
     const modes = {
       1: rows.filter(r => r.play_mode === 1),
