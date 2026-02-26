@@ -48,11 +48,11 @@ Page({
       });
 
       // 获取当前首发
-      const starters = (rosterRes?.data || []).filter(p => p.is_starter);
+      const starters = (rosterRes && rosterRes.data || []).filter(p => p.is_starter);
 
       this.setData({
-        roster: rosterRes?.data || [],
-        weeklyScores: scoresRes?.data || [],
+        roster: rosterRes && rosterRes.data || [],
+        weeklyScores: scoresRes && scoresRes.data || [],
         currentWeekStart: weekStartStr,
         starterIds: starters.map(p => p.player_id),
         loading: false
@@ -85,7 +85,7 @@ Page({
       const res = await request({
         url: '/manager/trades/pending'
       });
-      this.setData({ pendingTrades: res?.data || [] });
+      this.setData({ pendingTrades: res && res.data || [] });
     } catch (error) {
       console.error('加载交易列表失败', error);
     } finally {
@@ -100,7 +100,7 @@ Page({
       const res = await request({
         url: '/manager/draft/snake-order'
       });
-      this.setData({ draftOrder: res?.data?.draftOrder || [] });
+      this.setData({ draftOrder: res && res.data && res.data.draftOrder || [] });
     } catch (error) {
       console.error('加载选秀顺序失败', error);
     } finally {
@@ -189,7 +189,7 @@ Page({
       this.loadData();
     } catch (error) {
       console.error('伤病操作失败', error);
-      wx.showToast({ title: error?.error || '操作失败', icon: 'none' });
+      wx.showToast({ title: (error && error.error) || '操作失败', icon: 'none' });
     } finally {
       wx.hideLoading();
     }

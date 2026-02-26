@@ -1,0 +1,220 @@
+<view class="page-container">
+  <!-- Floating Refresh Button Component -->
+  <floating-refresh pagePath="pages/index/index" />
+
+  <!-- Header Section -->
+  <view class="header">
+    <view class="header-top">
+      <view class="season-selector">
+        <picker mode="selector" range="{{seasons}}" bindchange="handleSeasonChange">
+          <view class="season-picker">
+            <text>{{currentSeason || '2024-2025'}}</text>
+            <text class="picker-arrow">▼</text>
+          </view>
+        </picker>
+      </view>
+      
+      <view class="actions">
+          <view class="mode-badge" bindtap="handleSyncSchedule">
+              <text>更新赛程</text>
+          </view>
+          <view class="mode-badge" bindtap="scrollToToday">
+              <text>回到今天</text>
+          </view>
+      </view>
+    </view>
+
+    <view class="mode-status-card">
+      <view class="mode-row">
+        <text class="mode-label">当前玩法</text>
+        <text class="mode-value">{{currentModeName}}</text>
+      </view>
+      <view class="mode-row">
+        <text class="mode-label">已选球员</text>
+        <text class="mode-value">{{currentModeSelectionName || '未选择'}}</text>
+      </view>
+      <view class="mode-row" wx:if="{{selectionLockTime}}">
+        <text class="mode-label">锁定时间</text>
+        <text class="mode-value">{{selectionLockDateText ? (selectionLockDateText + ' ') : ''}}{{selectionLockTime}}</text>
+        <text class="mode-lock" wx:if="{{!canModifySelection}}">已锁定</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Timeline List -->
+  <scroll-view 
+    class="timeline-scroll"
+    scroll-y 
+    enable-back-to-top
+    scroll-into-view="{{toView}}"
+    bindscrolltoupper="handleScrollToUpper"
+    bindscrolltolower="handleScrollToLower"
+    upper-threshold="100"
+    lower-threshold="100"
+  >
+    <view class="timeline-content">
+      <!-- Loading Indicator Top -->
+      <view class="loading-more" wx:if="{{loadingMorePast}}">
+        <view class="spinner"></view>
+      </view>
+
+      <!-- Days Group -->
+      <block wx:for="{{gameList}}" wx:key="date" wx:for-item="dayGroup">
+        <view class="date-group" id="date-{{dayGroup.date}}">
+          <view class="date-header {{dayGroup.isToday ? 'is-today' : ''}}">
+            <text class="day-text">{{dayGroup.dateStr}}</text>
+            <text class="week-text">{{dayGroup.weekStr}}</text>
+            <text wx:if="{{dayGroup.isToday}}" class="today-tag">今日</text>
+          </view>
+
+          <block wx:if="{{dayGroup.games.length}}">
+            <block wx:for="{{dayGroup.games}}" wx:key="external_id" wx:for-item="game">
+              <view class="game-card {{activeGameId === game.external_id ? 'expanded' : ''}}">
+                <view class="game-summary" bindtap="toggleGame" data-id="{{game.external_id}}" data-date="{{dayGroup.date}}" data-has-data="{{game.hasPlayers}}">
+                  <!-- Visitor Team -->
+                  <view class="team-block visitor">
+                    <image class="team-logo" src="https://cdn.nba.com/logos/nba/{{game.visitor_team_id}}/global/L/logo.svg" mode="aspectFit"></image>
+                    <view class="team-name">{{game.visitor_team_name}}</view>
+                  </view>
+
+                  <!-- Center Score Board -->
+                  <view class="score-board">
+                    <view class="score-line" wx:if="{{game.status !== 'Final' && game.status !== 'In Progress' && game.home_score === 0}}">
+                        <text class="vs-text">VS</text>
+                    </view>
+                    <view class="score-line" wx:else>
+                        <text class="score-num {{game.status !== 'Final' && (game.home_score > 0 || game.visitor_score > 0) ? 'live' : ''}} {{game.visitor_score > game.home_score ? 'win' : ''}}">{{game.visitor_score}}</text>
+                        <text class="score-divider">:</text>
+                        <text class="score-num {{game.status !== 'Final' && (game.home_score > 0 || game.visitor_score > 0) ? 'live' : ''}} {{game.home_score > game.visitor_score ? 'win' : ''}}">{{game.home_score}}</text>
+                    </view>
+                    <view class="game-status-row">
+                        <text class="status-text {{game.status === 'In Progress' ? 'live' : ''}}">{{game.status}}</text>
+                        <text class="time-text">{{game.tipoff_time_short}}</text>
+                    </view>
+                  </view>
+
+                  <!-- Home Team -->
+                  <view class="team-block home">
+                    <image class="team-logo" src="https://cdn.nba.com/logos/nba/{{game.home_team_id}}/global/L/logo.svg" mode="aspectFit"></image>
+                    <view class="team-name">{{game.home_team_name}}</view>
+                  </view>
+                  
+                  <!-- Expand Icon Absolute -->
+                   <view class="expand-tag">
+                      {{activeGameId === game.external_id ? '▲' : '▼'}}
+    </view>
+  </view>
+
+                <!-- Expanded Content -->
+                <view class="players-section" wx:if="{{activeGameId === game.external_id}}">
+                  <view class="divider"></view>
+                  <view class="section-label">
+                     <text>{{game.status === 'In Progress' || game.status === 'Final' ? '技术统计' : '选择球员'}} ({{currentModeName}})</text>
+                     <view class="refresh-text" catchtap="handleSyncDay" data-date="{{dayGroup.date}}">刷新</view>
+                  </view>
+                  
+                  <!-- Loading State inside Card -->
+                  <view class="card-loading" wx:if="{{gameLoading === game.external_id}}">
+                    <view class="spinner"></view>
+                    <text>正在同步数据...</text>
+                  </view>
+
+                  <view class="players-columns" wx:else>
+                    <block wx:if="{{game.hasPlayers}}">
+                      <view class="team-column visitor-column">
+                        <view class="team-column-header">
+                          <text class="team-column-name">{{game.visitor_team_name}}</text>
+                          <text class="team-column-sub">客队</text>
+                        </view>
+                        <view class="team-column-list player-grid">
+                          <block wx:if="{{game.visitorPlayersSorted.length}}">
+                            <block wx:for="{{game.visitorPlayersSorted}}" wx:key="player_id" wx:for-item="player">
+        <view
+                                class="player-chip {{frozenPlayerIds.indexOf(player.player_id) > -1 ? 'disabled' : ''}}"
+                                data-player="{{player}}"
+                                data-date="{{dayGroup.date}}"
+                                bindtap="handleSelectPlayer"
+        >
+                                <view class="player-info">
+                                  <view class="p-name">{{player.player_name}}</view>
+                                  <view class="p-team">{{player.team_name}}</view>
+                              <view class="p-avg-inline">均 {{player.seasonAvgDisplay || '--'}}</view>
+        </view>
+                                <view class="p-stat">
+                                  <block wx:if="{{game.status === 'In Progress' || game.status === 'Final'}}">
+                                    <text class="p-live-score {{player.stats_points >= 10 ? 'high' : ''}}">{{player.stats_points}}</text>
+                                    <text class="p-live-sub">分</text>
+                                  </block>
+                                  <block wx:else>
+                                    <view class="p-avg">均 {{player.seasonAvgDisplay || '--'}}</view>
+      </block>
+                                </view>
+                              </view>
+                            </block>
+                          </block>
+                          <view wx:else class="no-players-mini">暂无数据</view>
+    </view>
+  </view>
+
+                      <view class="team-column home-column">
+                        <view class="team-column-header">
+                          <text class="team-column-name">{{game.home_team_name}}</text>
+                          <text class="team-column-sub">主队</text>
+        </view>
+                        <view class="team-column-list player-grid">
+                          <block wx:if="{{game.homePlayersSorted.length}}">
+                            <block wx:for="{{game.homePlayersSorted}}" wx:key="player_id" wx:for-item="player">
+              <view
+                                class="player-chip {{frozenPlayerIds.indexOf(player.player_id) > -1 ? 'disabled' : ''}}"
+                                data-player="{{player}}"
+                                data-date="{{dayGroup.date}}"
+                bindtap="handleSelectPlayer"
+              >
+                                <view class="player-info">
+                                  <view class="p-name">{{player.player_name}}</view>
+                                  <view class="p-team">{{player.team_name}}</view>
+                                  <view class="p-avg-inline">均 {{player.seasonAvgDisplay || '--'}}</view>
+              </view>
+                                <view class="p-stat">
+                                  <block wx:if="{{game.status === 'In Progress' || game.status === 'Final'}}">
+                                    <text class="p-live-score {{player.stats_points >= 10 ? 'high' : ''}}">{{player.stats_points}}</text>
+                                    <text class="p-live-sub">分</text>
+                                  </block>
+                                  <block wx:else>
+                                    <view class="p-avg">均 {{player.seasonAvgDisplay || '--'}}</view>
+            </block>
+                                </view>
+                              </view>
+                            </block>
+                          </block>
+                          <view wx:else class="no-players-mini">暂无数据</view>
+                        </view>
+                      </view>
+                    </block>
+
+                    <!-- No Players State -->
+                    <view wx:else class="no-players">
+                      <view>暂无数据</view>
+                      <button size="mini" bindtap="handleSyncDay" data-date="{{dayGroup.date}}" class="mini-sync-btn">刷新数据</button>
+                    </view>
+          </view>
+        </view>
+      </view>
+    </block>
+  </block>
+          <view wx:else class="no-games-day">本日无比赛</view>
+        </view>
+      </block>
+
+      <!-- Loading Indicator Bottom -->
+      <view class="loading-more" wx:if="{{loadingMoreFuture}}">
+        <view class="spinner"></view>
+      </view>
+    </view>
+  </scroll-view>
+  
+  <!-- Floating Refresh Button -->
+  <view class="floating-refresh" bindtap="handleRefreshToday">
+    <text class="refresh-icon">↻</text>
+  </view>
+</view>

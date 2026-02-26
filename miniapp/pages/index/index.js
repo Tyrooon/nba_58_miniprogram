@@ -29,8 +29,8 @@ const formatSeasonAvg = (value) => {
 
 const sortPlayersByPoints = (players = []) => {
   return (players || []).slice().sort((a, b) => {
-    const pointsA = a?.stats_points ?? 0;
-    const pointsB = b?.stats_points ?? 0;
+    const pointsA = (a && a.stats_points) || 0;
+    const pointsB = (b && b.stats_points) || 0;
     return pointsB - pointsA;
   });
 };
@@ -152,14 +152,14 @@ Page({
         }
       });
       const modeId = this.data.selectedMode || MODE_MAP[app.globalData.currentMode] || app.globalData.currentModeId || 1;
-      const currentSelection = res?.modes ? res.modes[String(modeId)] : null;
-      const lockDateText = res?.lockDate ? dayjs(res.lockDate).format('MM-DD') : '';
+      const currentSelection = res && res.modes ? res.modes[String(modeId)] : null;
+      const lockDateText = res && res.lockDate ? dayjs(res.lockDate).format('MM-DD') : '';
       this.setData({
         selectionInfo: res,
         currentModeSelectionName: currentSelection ? currentSelection.player_name : '',
-        selectionLockTime: res?.deadline ? dayjs(res.deadline).format('HH:mm') : '',
+        selectionLockTime: res && res.deadline ? dayjs(res.deadline).format('HH:mm') : '',
         selectionLockDateText: lockDateText,
-        canModifySelection: res?.canModify !== false,
+        canModifySelection: res && res.canModify !== false,
         selectedSelectionDate: date
       });
       this.updateTabBarSelectionState(res, modeId, date);
@@ -187,7 +187,7 @@ Page({
     if (typeof this.getTabBar !== 'function') return;
     const tabBar = this.getTabBar();
     if (!tabBar) return;
-    const modes = summary?.modes || {};
+    const modes = summary && summary.modes ? summary.modes : {};
     const currentSelection = modes[String(activeModeId)] || modes[activeModeId];
     const selectionRegular = modes['1'] || modes[1] || null;
     const selectionPlus58 = modes['2'] || modes[2] || null;
@@ -201,8 +201,8 @@ Page({
       currentSelectionPlus58: selectionPlus58,
       currentSelectionMinus58: selectionMinus58,
       currentSelectionText: currentSelection ? `已选：${currentSelection.player_name}` : '未选择',
-      canModifySelection: summary?.canModify !== false,
-      selectionDeadline: summary?.deadline || null,
+      canModifySelection: summary && summary.canModify !== false,
+      selectionDeadline: summary && summary.deadline || null,
       selectedDate: date,
       selectedDateLabel: dateLabel
     });

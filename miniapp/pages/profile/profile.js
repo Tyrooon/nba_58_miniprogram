@@ -77,7 +77,7 @@ Page({
   
   // 编辑昵称
   editNickname() {
-    const currentNickname = this.data.user?.nickname || '';
+    const currentNickname = this.data.user && this.data.user.nickname || '';
     wx.showModal({
       title: '修改昵称',
       editable: true,

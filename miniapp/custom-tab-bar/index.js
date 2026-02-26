@@ -61,12 +61,12 @@ Component({
           url: '/selections/current',
           data: { userId: app.globalData.user.id, date }
         });
-        const modes = res?.modes || {};
+        const modes = res && res.modes || {};
         this.setData({
           currentSelectionRegular: modes['1'] || modes[1] || null,
           currentSelectionPlus58: modes['2'] || modes[2] || null,
           currentSelectionMinus58: modes['3'] || modes[3] || null,
-          canModifySelection: res?.canModify !== false,
+          canModifySelection: res && res.canModify !== false,
         });
       } catch (e) {
         console.error('加载当前选择失败', e);

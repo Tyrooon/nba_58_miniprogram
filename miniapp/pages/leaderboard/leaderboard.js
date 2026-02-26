@@ -14,7 +14,7 @@ Page({
   },
   onLoad() {
     const app = getApp();
-    if (app.globalData?.user) {
+    if (app.globalData && app.globalData.user) {
       this.setData({ currentUserId: app.globalData.user.id });
     }
   },

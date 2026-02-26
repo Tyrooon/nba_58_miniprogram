@@ -25,8 +25,8 @@ App({
     const profile = await this.getProfile();
     const payload = {
       code: loginRes.code,
-      nickname: profile?.nickName || `球迷${Date.now().toString().slice(-4)}`,
-      avatarUrl: profile?.avatarUrl,
+      nickname: (profile && profile.nickName) || `球迷${Date.now().toString().slice(-4)}`,
+      avatarUrl: profile && profile.avatarUrl,
     };
     const user = await request({ url: '/users/login', method: 'POST', data: payload });
     wx.setStorageSync('user', user);
