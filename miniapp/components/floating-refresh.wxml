@@ -4,12 +4,8 @@
         style="position: absolute; left: {{buttonX}}px; top: {{buttonY}}px;"
         catchtouchstart="handleTouchStart"
         catchtouchmove="handleTouchMove"
-        catchtouchend="handleTouchEnd">
-    <image class="refresh-icon" src="/images/refresh.png" mode="aspectFit" />
-    <image class="refresh-rotating"
-           src="/images/refresh.png"
-           mode="aspectFit"
-           wx:if="{{rotating}}"
-           class="rotating" />
+        catchtouchend="handleTouchEnd"
+        bindtap="triggerRefresh">
+    <image class="refresh-icon {{rotating ? 'rotating' : ''}}" src="/images/refresh.png" mode="aspectFit" />
   </view>
 </view>

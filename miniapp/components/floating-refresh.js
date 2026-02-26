@@ -11,8 +11,8 @@ Component({
 
   data: {
     // 按钮位置
-    buttonX: 0,
-    buttonY: 0,
+    buttonX: 280,  // 默认显示在右侧
+    buttonY: 150,
     savedX: 0,
     savedY: 0,
 
@@ -20,6 +20,7 @@ Component({
     dragging: false,
     startX: 0,
     startY: 0,
+    rotating: false,
 
     // 页面状态
     pageIndex: 0,  // 0: index(赛程), 1: profile, 2: history, 3: leaderboard, 4: manager
