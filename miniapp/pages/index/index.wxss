@@ -79,6 +79,33 @@
   background: #EFF6FF;
   padding: 8rpx 20rpx;
   border-radius: 30rpx;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.mode-badge:active {
+  transform: scale(0.95);
+  background: #DBEAFE;
+}
+
+/* Ripple effect */
+.mode-badge::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.2);
+  transform: translate(-50%, -50%);
+  transition: width 0.3s, height 0.3s;
+}
+
+.mode-badge:active::after {
+  width: 200%;
+  height: 200%;
 }
 
 .mode-badge text {
@@ -154,11 +181,25 @@
   border-radius: 20rpx;
   overflow: hidden;
   box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.03);
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.game-card:active .game-summary {
+  background: #F9FAFB;
 }
 
 .game-card.expanded {
   box-shadow: 0 8rpx 20rpx rgba(0,0,0,0.1);
+  transform: translateY(-2rpx);
+}
+
+/* Expand arrow animation */
+.expand-tag {
+  transition: transform 0.3s ease;
+}
+
+.game-card.expanded .expand-tag {
+  transform: translateX(-50%) rotate(180deg);
 }
 
 .game-summary {
@@ -243,6 +284,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 6rpx;
 }
 
 .status-text {
@@ -252,6 +294,35 @@
   background: #F3F4F6;
   padding: 4rpx 12rpx;
   border-radius: 100rpx;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+
+/* Live status indicator */
+.status-text.live {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+
+.status-text.live::before {
+  content: '';
+  width: 8rpx;
+  height: 8rpx;
+  background: #DC2626;
+  border-radius: 50%;
+  animation: liveDot 1.5s ease-in-out infinite;
+}
+
+@keyframes liveDot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
 }
 
 .time-text {
@@ -289,6 +360,73 @@
     background: #EFF6FF;
     border-radius: 8rpx;
     font-size: 20rpx;
+    transition: all 0.2s ease;
+}
+
+.section-label .refresh-text:active {
+  background: #DBEAFE;
+  transform: scale(0.95);
+}
+
+/* Loading spinner enhancement */
+.spinner {
+  width: 40rpx;
+  height: 40rpx;
+  border: 4rpx solid #f3f3f3;
+  border-top: 4rpx solid #3B82F6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Card loading state with fade in */
+.card-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40rpx;
+    color: #9CA3AF;
+    font-size: 24rpx;
+    gap: 16rpx;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Live score pulse for ongoing games */
+.score-num.live {
+    color: #3B82F6;
+    animation: livePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Mini sync button enhancement */
+.mini-sync-btn {
+    background: #EFF6FF;
+    color: #3B82F6;
+    transition: all 0.2s ease;
+}
+
+.mini-sync-btn:active {
+  background: #DBEAFE;
+  transform: scale(0.95);
 }
 
 .card-loading {
@@ -369,11 +507,54 @@
   gap: 6rpx;
   width: 100%;
   box-sizing: border-box;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.player-chip:active {
+  transform: scale(0.98);
+  border-color: #3B82F6;
+  background: #EFF6FF;
+}
+
+/* Selected state for player chip */
+.player-chip.selected {
+  border-color: #3B82F6;
+  background: #EFF6FF;
+}
+
+/* Pulse animation for selected/highlighted */
+.player-chip.selected::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 12rpx;
+  animation: pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8rpx rgba(59, 130, 246, 0);
+  }
 }
 
 .player-chip.disabled {
     opacity: 0.5;
     background: #F3F4F6;
+}
+
+.player-chip.disabled:active {
+  transform: none;
+  border-color: #E5E7EB;
+  background: #F3F4F6;
 }
 
 .player-info {
