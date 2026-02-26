@@ -268,18 +268,12 @@ router.post('/reshuffle', async (req: any, res, next) => {
 router.get('/draft/snake-order', async (req: any, res, next) => {
   try {
     const query = 'SELECT id FROM users ORDER BY score DESC';
-    
-    db.all(query, [], (err: any, rows: any[]) => {
-      if (err) {
-        console.error('Error getting users for draft order:', err);
-        return res.status(500).json({ success: false, error: err.message });
-      }
-      
-      const userIds = rows.map((row: any) => row.id);
-      const draftOrder = managerService.snakeDraftOrder(userIds);
-      
-      res.json({ success: true, data: { draftOrder } });
-    });
+
+    const rows = await db.all(query, []) as unknown as any[];
+    const userIds = rows.map((row: any) => row.id);
+    const draftOrder = managerService.snakeDraftOrder(userIds);
+
+    res.json({ success: true, data: { draftOrder } });
   } catch (error: any) {
     next(error);
   }

@@ -22,9 +22,9 @@ export const bootstrapSchedulers = () => {
       await syncDailyData();
       await purgeExpiredFrozen();
       console.info(`[cron] 同步今日赛程/球员完成`);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('[cron] 同步失败', error);
-      console.error('[cron] Error stack:', error.stack);
+      console.error('[cron] Error stack:', error instanceof Error ? error.stack : String(error));
     }
   });
 
@@ -33,9 +33,9 @@ export const bootstrapSchedulers = () => {
       console.log('[cron] Score computation triggered');
       const summary = await computeDayScores();
       console.info(`[cron] 计分完成`, summary);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('[cron] 计分失败', error);
-      console.error('[cron] Error stack:', error.stack);
+      console.error('[cron] Error stack:', error instanceof Error ? error.stack : String(error));
     }
   });
 
@@ -45,9 +45,9 @@ export const bootstrapSchedulers = () => {
     try {
       console.log('[cron] Season stats triggered');
       await processSeasonStats();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('[cron] 赛季统计更新失败', error);
-      console.error('[cron] Error stack:', error.stack);
+      console.error('[cron] Error stack:', error instanceof Error ? error.stack : String(error));
     }
   });
 
