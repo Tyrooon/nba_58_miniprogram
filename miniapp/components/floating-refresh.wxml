@@ -1,0 +1,15 @@
+<!-- components/floating-refresh.wxml -->
+<view class="floating-refresh" wx:if="{{pagePath === 'pages/index/index'}}">
+  <view class="refresh-button"
+        style="position: absolute; left: {{buttonX}}px; top: {{buttonY}}px;"
+        catchtouchstart="handleTouchStart"
+        catchtouchmove="handleTouchMove"
+        catchtouchend="handleTouchEnd">
+    <image class="refresh-icon" src="/images/refresh.png" mode="aspectFit" />
+    <image class="refresh-rotating"
+           src="/images/refresh.png"
+           mode="aspectFit"
+           wx:if="{{rotating}}"
+           class="rotating" />
+  </view>
+</view>

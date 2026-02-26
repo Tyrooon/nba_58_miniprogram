@@ -1,5 +1,8 @@
 {
-  "navigationBarTitleText": "今日赛程"
+  "navigationBarTitleText": "今日赛程",
+  "usingComponents": {
+    "floating-refresh": "/components/floating-refresh/floating-refresh"
+  }
 }
 
 

@@ -1,4 +1,7 @@
 <view class="page-container">
+  <!-- Floating Refresh Button Component -->
+  <floating-refresh pagePath="pages/index/index" />
+
   <!-- Header Section -->
   <view class="header">
     <view class="header-top">
