@@ -156,7 +156,7 @@ Component({
       // 通知页面刷新
       const pages = getCurrentPages();
       const currentPage = pages[pages.length - 1];
-      const refreshMethod = currentPage?.onRefresh && typeof currentPage.onRefresh === 'function';
+      const refreshMethod = currentPage && currentPage.onRefresh && typeof currentPage.onRefresh === 'function';
 
       if (refreshMethod) {
         currentPage.onRefresh();
