@@ -31,6 +31,32 @@
   width: 32px;
 }
 
+/* Tab Bar */
+.tab-bar {
+  display: flex;
+  background: white;
+  padding: 8px 16px;
+  gap: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.tab-item.active {
+  background: #3b82f6;
+  color: white;
+  font-weight: 600;
+}
+
 .content {
   padding: 16px;
 }
@@ -42,11 +68,43 @@
   margin-bottom: 16px;
 }
 
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
 .section-title {
   font-size: 16px;
   font-weight: 600;
   color: #1f2937;
-  margin-bottom: 16px;
+}
+
+.save-btn, .add-btn, .reshuffle-btn {
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.save-btn {
+  background: #3b82f6;
+  color: white;
+}
+
+.add-btn, .reshuffle-btn {
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
+.save-btn:active {
+  background: #2563eb;
+}
+
+.add-btn:active, .reshuffle-btn:active {
+  background: #dbeafe;
 }
 
 .roster-list {
@@ -62,6 +120,89 @@
   padding: 16px;
   background: #f3f4f6;
   border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.roster-item:active {
+  background: #e5e7eb;
+}
+
+.roster-item.starter-item {
+  cursor: pointer;
+}
+
+.roster-item.starter-item:active {
+  transform: scale(0.98);
+}
+
+.rookie-tag {
+  font-size: 11px;
+  padding: 2px 6px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-direction: column;
+}
+
+.action-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #e5e7eb;
+  color: #6b7280;
+  transition: all 0.2s ease;
+}
+
+.action-btn:active {
+  transform: scale(0.95);
+}
+
+.action-btn.delete {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* Checkbox */
+.checkbox {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #d1d5db;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: white;
+  transition: all 0.2s ease;
+}
+
+.checkbox.checked {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.disabled-text {
+  color: #d1d5db;
+  font-size: 12px;
+  padding: 4px 8px;
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+/* Tip Box */
+.tip-box {
+  background: #fef3c7;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #92400e;
+  line-height: 1.5;
 }
 
 .player-info {
@@ -155,6 +296,254 @@
   padding: 8px 12px;
   border-radius: 8px;
   background: #fef3c7;
+}
+
+/* Trade List */
+.trade-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.trade-item {
+  padding: 16px;
+  background: #f3f4f6;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.trade-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.trade-users {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.trade-details {
+  font-size: 13px;
+  color: #6b7280;
+  background: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.trade-votes {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+}
+
+.vote-for {
+  color: #059669;
+}
+
+.vote-against {
+  color: #dc2626;
+}
+
+.trade-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.vote-btn {
+  flex: 1;
+  text-align: center;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.vote-btn.approve {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.vote-btn.reject {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.vote-btn:active {
+  transform: scale(0.95);
+}
+
+/* Draft Order */
+.draft-order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.draft-order-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f3f4f6;
+  border-radius: 8px;
+}
+
+.order-num {
+  width: 28px;
+  height: 28px;
+  background: #3b82f6;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.order-user {
+  flex: 1;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+/* Modal */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 400px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalSlide 0.3s ease;
+}
+
+@keyframes modalSlide {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.modal-close {
+  font-size: 28px;
+  color: #6b7280;
+  padding: 4px;
+  line-height: 1;
+}
+
+.modal-body {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.modal-desc {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.reshuffle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reshuffle-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.reshuffle-item.selected {
+  background: #dbeafe;
+  border: 2px solid #3b82f6;
+}
+
+.reshuffle-item .checkbox {
+  border-color: #d1d5db;
+  background: white;
+}
+
+.reshuffle-item.selected .checkbox {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.modal-footer .btn {
+  flex: 1;
+  text-align: center;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.modal-footer .btn.cancel {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.modal-footer .btn.confirm {
+  background: #3b82f6;
+  color: white;
+}
+
+.modal-footer .btn:active {
+  transform: scale(0.98);
 }
 
 .empty-tip {

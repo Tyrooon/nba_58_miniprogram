@@ -5,33 +5,132 @@
     <view class="placeholder"></view>
   </view>
 
+  <!-- Tab导航 -->
+  <view class="tab-bar">
+    <view class="tab-item {{activeTab === 'roster' ? 'active' : ''}}" bindtap="switchTab" data-tab="roster">阵容</view>
+    <view class="tab-item {{activeTab === 'starters' ? 'active' : ''}}" bindtap="switchTab" data-tab="starters">首发</view>
+    <view class="tab-item {{activeTab === 'trades' ? 'active' : ''}}" bindtap="switchTab" data-tab="trades">交易</view>
+    <view class="tab-item {{activeTab === 'draft' ? 'active' : ''}}" bindtap="switchTab" data-tab="draft">选秀</view>
+  </view>
+
   <view class="content" wx:if="{{!loading}}">
-    <!-- 阵容列表 -->
-    <view class="section">
-      <view class="section-title">我的阵容</view>
-      <view class="roster-list" wx:if="{{roster.length > 0}}">
-        <view class="roster-item" wx:for="{{roster}}" wx:key="id" data-player="{{item}}" bindtap="handleRosterClick">
-          <view class="player-info">
-            <view class="player-name">{{item.player_name}}</view>
-            <view class="player-meta">
-              <text class="team">{{item.team_name}}</text>
-              <text class="position">{{item.position}}</text>
-              <text class="type {{item.player_type}}">{{item.player_type === 'rookie' ? '新秀' : '常规'}}</text>
+    <!-- 阵容Tab -->
+    <view wx:if="{{activeTab === 'roster'}}">
+      <view class="section">
+        <view class="section-title">我的阵容 ({{roster.length}})</view>
+        <view class="roster-list" wx:if="{{roster.length > 0}}">
+          <view class="roster-item" wx:for="{{roster}}" wx:key="id" data-player="{{item}}" bindtap="handleRosterClick">
+            <view class="player-info">
+              <view class="player-name">
+                {{item.player_name}}
+                <text class="rookie-tag" wx:if="{{item.player_type === 'rookie'}}">新</text>
+              </view>
+              <view class="player-meta">
+                <text class="team">{{item.team_name}}</text>
+                <text class="position">{{item.position}}</text>
+              </view>
+            </view>
+            <view class="player-status">
+              <text class="status-text starter" wx:if="{{item.is_starter}}">首发</text>
+              <text class="status-text injured" wx:if="{{item.is_injured}}">伤病</text>
+              <view class="actions">
+                <text class="action-btn" bindtap="handleInjuryAction" data-player="{{item}}" data-action="{{item.is_injured ? 'release' : 'move'}}" catchtap="true">
+                  {{item.is_injured ? '恢复' : '伤病'}}
+                </text>
+                <text class="action-btn delete" bindtap="removePlayer" data-player="{{item}}" catchtap="true">移除</text>
+              </view>
             </view>
           </view>
-          <view class="player-status">
-            <text class="status-text" wx:if="{{item.is_starter}}">首发</text>
-            <text class="status-text injured" wx:if="{{item.is_injured}}">伤病</text>
-          </view>
         </view>
-      </view>
-      <view class="empty-tip" wx:else>
-        <text>暂无阵容，请先通过选秀获取球员</text>
+        <view class="empty-tip" wx:else>
+          <text>暂无阵容，请先通过选秀获取球员</text>
+        </view>
       </view>
     </view>
 
-    <!-- 周得分 -->
-    <view class="section">
+    <!-- 首发Tab -->
+    <view wx:if="{{activeTab === 'starters'}}">
+      <view class="section">
+        <view class="section-header">
+          <view class="section-title">设置首发 (已选 {{starterIds.length}}/5)</view>
+          <text class="save-btn" bindtap="setStarters">保存</text>
+        </view>
+        <view class="roster-list" wx:if="{{roster.length > 0}}">
+          <view class="roster-item starter-item" wx:for="{{roster}}" wx:key="id" data-player="{{item}}">
+            <view class="player-info">
+              <view class="player-name">
+                {{item.player_name}}
+                <text class="rookie-tag" wx:if="{{item.player_type === 'rookie'}}">新</text>
+              </view>
+              <view class="player-meta">
+                <text class="team">{{item.team_name}}</text>
+                <text class="position">{{item.position}}</text>
+              </view>
+            </view>
+            <view class="player-status">
+              <view class="checkbox {{starterIds.includes(item.player_id) && !item.is_injured ? 'checked' : ''}}" bindtap="toggleStarter" data-player-id="{{item.player_id}}" wx:if="{{!item.is_injured}}">
+                <text wx:if="{{starterIds.includes(item.player_id)}}">✓</text>
+              </view>
+              <text class="disabled-text" wx:if="{{item.is_injured}}">伤病</text>
+            </view>
+          </view>
+        </view>
+        <view class="tip-box">
+          <text>提示：必须选择5名首发球员，其中至少包含1名新秀</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 交易Tab -->
+    <view wx:if="{{activeTab === 'trades'}}">
+      <view class="section">
+        <view class="section-header">
+          <view class="section-title">待处理交易</view>
+          <text class="add-btn" bindtap="showCreateTrade">+ 发起交易</text>
+        </view>
+        <view class="trade-list" wx:if="{{pendingTrades.length > 0}}">
+          <view class="trade-item" wx:for="{{pendingTrades}}" wx:key="id">
+            <view class="trade-info">
+              <text class="trade-users">{{item.from_user_nickname}} → {{item.to_user_nickname}}</text>
+              <text class="trade-details">交易详情：{{item.trade_details}}</text>
+              <view class="trade-votes">
+                <text class="vote-for">支持: {{item.votes_for}}</text>
+                <text class="vote-against">反对: {{item.votes_against}}</text>
+              </view>
+            </view>
+            <view class="trade-actions">
+              <text class="vote-btn approve" bindtap="voteOnTrade" data-trade-id="{{item.id}}" data-vote="{{true}}">支持</text>
+              <text class="vote-btn reject" bindtap="voteOnTrade" data-trade-id="{{item.id}}" data-vote="{{false}}">反对</text>
+            </view>
+          </view>
+        </view>
+        <view class="empty-tip" wx:else>
+          <text>暂无待处理的交易</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 选秀Tab -->
+    <view wx:if="{{activeTab === 'draft'}}">
+      <view class="section">
+        <view class="section-header">
+          <view class="section-title">选秀顺序</view>
+          <text class="reshuffle-btn" bindtap="showReshuffleModal">重选秀</text>
+        </view>
+        <view class="draft-order-list" wx:if="{{draftOrder.length > 0}}">
+          <view class="draft-order-item" wx:for="{{draftOrder}}" wx:key="{{item}}">
+            <text class="order-num">{{index + 1}}.</text>
+            <text class="order-user">用户{{item}}</text>
+          </view>
+        </view>
+        <view class="empty-tip" wx:else>
+          <text>选秀顺序加载中...</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 周得分展示（在阵容tab下方） -->
+    <view class="section" wx:if="{{activeTab === 'roster'}}">
       <view class="section-title">本周得分</view>
       <view class="score-list" wx:if="{{weeklyScores.length > 0}}">
         <view class="score-item" wx:for="{{weeklyScores}}" wx:key="id" data-score="{{item}}" bindtap="handleScoreClick">
@@ -52,5 +151,34 @@
   <view class="loading-container" wx:if="{{loading}}">
     <view class="spinner"></view>
     <text>加载中...</text>
+  </view>
+
+  <!-- 重选秀弹窗 -->
+  <view class="modal-mask" wx:if="{{showReshuffleModal}}" bindtap="closeModal">
+    <view class="modal-content" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">重选秀</text>
+        <text class="modal-close" bindtap="closeModal">×</text>
+      </view>
+      <view class="modal-body">
+        <text class="modal-desc">选择2名球员保留，其余球员将被移除</text>
+        <view class="reshuffle-list">
+          <view class="reshuffle-item {{retainedPlayers.includes(item.player_id) ? 'selected' : ''}}"
+                wx:for="{{roster}}"
+                wx:key="id"
+                wx:if="{{!item.is_injured}}"
+                bindtap="toggleRetainPlayer"
+                data-player-id="{{item.player_id}}">
+            <text class="checkbox">{{retainedPlayers.includes(item.player_id) ? '✓' : '○'}}</text>
+            <text class="player-name">{{item.player_name}}</text>
+            <text class="rookie-tag" wx:if="{{item.player_type === 'rookie'}}">新</text>
+          </view>
+        </view>
+      </view>
+      <view class="modal-footer">
+        <text class="btn cancel" bindtap="closeModal">取消</text>
+        <text class="btn confirm" bindtap="executeReshuffle">确定</text>
+      </view>
+    </view>
   </view>
 </view>
