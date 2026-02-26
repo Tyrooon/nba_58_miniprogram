@@ -1,0 +1,56 @@
+<view class="container">
+  <view class="header">
+    <view class="back-btn" bindtap="handleBack">←</view>
+    <view class="title">经理模式</view>
+    <view class="placeholder"></view>
+  </view>
+
+  <view class="content" wx:if="{{!loading}}">
+    <!-- 阵容列表 -->
+    <view class="section">
+      <view class="section-title">我的阵容</view>
+      <view class="roster-list" wx:if="{{roster.length > 0}}">
+        <view class="roster-item" wx:for="{{roster}}" wx:key="id" data-player="{{item}}" bindtap="handleRosterClick">
+          <view class="player-info">
+            <view class="player-name">{{item.player_name}}</view>
+            <view class="player-meta">
+              <text class="team">{{item.team_name}}</text>
+              <text class="position">{{item.position}}</text>
+              <text class="type {{item.player_type}}">{{item.player_type === 'rookie' ? '新秀' : '常规'}}</text>
+            </view>
+          </view>
+          <view class="player-status">
+            <text class="status-text" wx:if="{{item.is_starter}}">首发</text>
+            <text class="status-text injured" wx:if="{{item.is_injured}}">伤病</text>
+          </view>
+        </view>
+      </view>
+      <view class="empty-tip" wx:else>
+        <text>暂无阵容，请先通过选秀获取球员</text>
+      </view>
+    </view>
+
+    <!-- 周得分 -->
+    <view class="section">
+      <view class="section-title">本周得分</view>
+      <view class="score-list" wx:if="{{weeklyScores.length > 0}}">
+        <view class="score-item" wx:for="{{weeklyScores}}" wx:key="id" data-score="{{item}}" bindtap="handleScoreClick">
+          <view class="score-info">
+            <text class="score-name">{{item.nickname}}</text>
+            <text class="score-points">{{item.total_points || 0}}分</text>
+          </view>
+          <text class="score-rank">#{{item.rank || '-'}}</text>
+        </view>
+      </view>
+      <view class="empty-tip" wx:else>
+        <text>暂无得分数据</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading-container" wx:if="{{loading}}">
+    <view class="spinner"></view>
+    <text>加载中...</text>
+  </view>
+</view>

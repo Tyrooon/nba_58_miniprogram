@@ -98,26 +98,26 @@ export const createSelection = async (payload: SelectionPayload) => {
       await db
         .prepare(
           `UPDATE selections SET
-            player_id = @playerId,
-            player_name = @playerName,
-            team_id = @teamId,
-            team_name = @teamName,
-            player_season_avg = @seasonAvg,
+            player_id = ?,
+            player_name = ?,
+            team_id = ?,
+            team_name = ?,
+            player_season_avg = ?,
             player_actual_score = NULL,
             base_score = NULL,
             bonus_score = 0,
             total_score = NULL,
             created_at = datetime('now')
-          WHERE id = @id`
+          WHERE id = ?`
         )
-        .run({
-          id: existing.id,
-          playerId: snapshot.player_id,
-          playerName: snapshot.player_name,
-          teamId: snapshot.team_id,
-          teamName: snapshot.team_name,
-          seasonAvg: snapshot.season_avg,
-        });
+        .run([
+          snapshot.player_id,
+          snapshot.player_name,
+          snapshot.team_id,
+          snapshot.team_name,
+          snapshot.season_avg,
+          existing.id,
+        ]);
 
       await addFrozenPlayer({
         userId: payload.userId,
@@ -134,18 +134,18 @@ export const createSelection = async (payload: SelectionPayload) => {
       .prepare(
         `INSERT INTO selections
         (user_id, game_date, play_mode, player_id, player_name, team_id, team_name, player_season_avg)
-        VALUES (@userId, @gameDate, @playMode, @playerId, @playerName, @teamId, @teamName, @seasonAvg)`
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run({
-        userId: payload.userId,
-        gameDate: dateKey,
-        playMode: payload.playMode,
-        playerId: snapshot.player_id,
-        playerName: snapshot.player_name,
-        teamId: snapshot.team_id,
-        teamName: snapshot.team_name,
-        seasonAvg: snapshot.season_avg,
-      });
+      .run([
+        payload.userId,
+        dateKey,
+        payload.playMode,
+        snapshot.player_id,
+        snapshot.player_name,
+        snapshot.team_id,
+        snapshot.team_name,
+        snapshot.season_avg,
+      ]);
 
     await addFrozenPlayer({
       userId: payload.userId,
@@ -156,7 +156,7 @@ export const createSelection = async (payload: SelectionPayload) => {
     });
 
     const insertResult = insert as any;
-    return await db.prepare(`SELECT * FROM selections WHERE id = ?`).get([insertResult.lastInsertRowid]) as any;
+    return await db.prepare(`SELECT * FROM selections WHERE id = ?`).get([insertResult.lastID]) as any;
   } catch (err) {
     if (err instanceof Error && err.message.includes('UNIQUE')) {
       throw new Error('今日该玩法已选择过球员');
@@ -186,12 +186,14 @@ export const deleteSelection = async (userId: number, playMode: number, gameDate
   return { deleted: true, playMode, gameDate: dateKey };
 };
 
-export const getSelectionHistory = async (userId: number, limit = 30) =>
-  await db
+export const getSelectionHistory = async (userId: number, limit = 30) => {
+  const rows = await db
     .prepare(
       `SELECT * FROM selections WHERE user_id = ? ORDER BY datetime(created_at) DESC LIMIT ?`
     )
-    .all([userId, limit]);
+    .all([userId, limit]) as unknown as any[];
+  return Array.isArray(rows) ? rows : [];
+};
 
 export const getUserSelectionsForView = async (userId: number, limit = 30) => {
   const rows = await db.prepare(`
@@ -203,8 +205,9 @@ export const getUserSelectionsForView = async (userId: number, limit = 30) => {
     ORDER BY s.game_date DESC, s.play_mode ASC
     LIMIT ?
   `).all([userId, limit]) as unknown as any[];
+  const arrayResult = Array.isArray(rows) ? rows : [];
 
-  return rows.map((r: any) => ({
+  return arrayResult.map((r: any) => ({
     gameDate: r.game_date,
     playMode: r.play_mode,
     playerName: r.player_name,
@@ -217,17 +220,20 @@ export const getUserSelectionsForView = async (userId: number, limit = 30) => {
   }));
 };
 
-export const getSelectionsByDate = async (date: string) =>
-  await db.prepare(`SELECT * FROM selections WHERE game_date = ?`).all([date]) as unknown as any[];
+export const getSelectionsByDate = async (date: string) => {
+  const result = await db.prepare(`SELECT * FROM selections WHERE game_date = ?`).all([date]) as unknown as any[];
+  // Ensure we return an array
+  return Array.isArray(result) ? result : [];
+};
 
 export const saveSelectionScores = async (rows: Array<{ id: number; actual: number; base: number; bonus: number; total: number }>) => {
   const updateStmt = db.prepare(
-    `UPDATE selections SET player_actual_score = @actual, base_score = @base, bonus_score = @bonus, total_score = @total WHERE id = @id`
+    `UPDATE selections SET player_actual_score = ?, base_score = ?, bonus_score = ?, total_score = ? WHERE id = ?`
   );
 
   // Simple loop for async execution instead of transaction block for now, or await updates one by one
   for (const row of rows) {
-      await updateStmt.run(row);
+    await updateStmt.run([row.actual, row.base, row.bonus, row.total, row.id]);
   }
 };
 

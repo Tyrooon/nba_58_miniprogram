@@ -194,6 +194,18 @@ Component({
         url: `/pages/pick/pick?mode=${selectedMode}&date=${targetDate}`
       });
     },
+    selectManagerMode() {
+      // 经理模式不需要选人，也不受日期影响
+      const app = getApp();
+      if (app && app.globalData) {
+        app.globalData.currentMode = 'manager';
+      }
+      this.setData({ showModes: false });
+      // 跳转到经理模式页面
+      wx.navigateTo({
+        url: `/pages/manager/manager`
+      });
+    },
     notifyModeChange(modeId) {
       const pages = getCurrentPages();
       if (!pages || !pages.length) return;

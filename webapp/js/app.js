@@ -132,7 +132,6 @@ const App = {
       toast: document.getElementById('toast'),
 
       // Manager
-      managerTab: document.getElementById('managerTab'),
       managerPage: document.getElementById('managerPage'),
       managerModal: document.getElementById('managerModal'),
       managerOverlay: document.getElementById('managerOverlay'),
@@ -955,6 +954,14 @@ const App = {
   },
 
   handleModeSelect(modeKey) {
+    // 经理模式特殊处理
+    if (modeKey === 'manager') {
+      this.state.currentMode = 'manager';
+      this.hideModePanel();
+      this.showManagerPage();
+      return;
+    }
+
     const modeId = CONFIG.MODE_MAP[modeKey];
     if (!modeId) return;
 
@@ -1325,7 +1332,18 @@ const App = {
 
   // Manager Mode
   async showManagerPage() {
+    // Hide all pages first
+    this.elements.timelineScroll.style.display = 'none';
+    document.querySelector('.header').style.display = 'none';
+    this.elements.profilePage.style.display = 'none';
+    this.elements.historyPage.style.display = 'none';
+    this.elements.leaderboardPage.style.display = 'none';
+    this.elements.scoreboardPage.style.display = 'none';
+
+    // Show manager page
     this.elements.managerPage.style.display = 'block';
+    this.state.currentTab = 'manager';
+
     await this.loadManagerList();
   },
 

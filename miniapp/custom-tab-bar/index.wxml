@@ -78,6 +78,16 @@
     </view>
     <view class="delete-btn" wx:if="{{currentSelectionMinus58 && canModifySelection}}" catchtap="handleDeleteSelection" data-mode="minus58">✕</view>
   </view>
+  <view class="mode-item" bindtap="selectManagerMode" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <view class="mode-icon" style="background: rgba(255,255,255,0.2);">👔</view>
+    <view class="mode-info">
+      <view class="mode-name" style="color: white;">经理模式</view>
+      <view class="mode-desc" style="color: rgba(255,255,255,0.8);">
+        <text>阵容管理·选秀·交易</text>
+        <text class="mode-desc-selection" style="color: rgba(255,255,255,0.8);">进入模式</text>
+      </view>
+    </view>
+  </view>
   <view class="lock-tip" wx:if="{{!canModifySelection}}">
     今日第一场比赛已锁定，如需修改请等待下一比赛日
   </view>

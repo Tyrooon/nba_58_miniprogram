@@ -51,14 +51,14 @@ export interface ManagerTrade {
 export const snakeDraftOrder = (userIds: string[]): string[] => {
   const order: string[] = [];
   const totalPlayers = userIds.length;
-  
+
   for (let round = 0; round < 8; round++) {
     // Even rounds: 0, 2, 4, 6 (left to right)
     if (round % 2 === 0) {
       for (let i = 0; i < totalPlayers; i++) {
         order.push(userIds[i]);
       }
-    } 
+    }
     // Odd rounds: 1, 3, 5, 7 (right to left)
     else {
       for (let i = totalPlayers - 1; i >= 0; i--) {
@@ -66,7 +66,7 @@ export const snakeDraftOrder = (userIds: string[]): string[] => {
       }
     }
   }
-  
+
   return order;
 };
 
@@ -107,7 +107,7 @@ export const calculateWeeklyPoints = async (userId: string, weekStart: string): 
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
   const weekEndStr = weekEnd.toISOString().split('T')[0];
-  
+
   const query = `
     SELECT SUM(pgl.points) as total_points
     FROM manager_rosters mr
@@ -118,7 +118,7 @@ export const calculateWeeklyPoints = async (userId: string, weekStart: string): 
       AND mr.is_injured = 0
       AND pgl.game_date >= ? AND pgl.game_date <= ?
   `;
-  
+
   const result = await db.prepare(query).get([userId, weekStart, weekEndStr]) as any;
   return result?.total_points || 0;
 };
@@ -135,7 +135,7 @@ export const canMoveToInjured = async (playerId: string): Promise<boolean> => {
       AND game_date >= date('now', '-7 days')
       AND game_date <= date('now')
   `;
-  
+
   const result = await db.prepare(query).get([playerId]) as any;
   return result.games_played === 0;
 };
@@ -145,13 +145,13 @@ export const canMoveToInjured = async (playerId: string): Promise<boolean> => {
  */
 export const moveToInjured = async (userId: string, playerId: string): Promise<void> => {
   const injuredSince = new Date().toISOString().split('T')[0];
-  
+
   const query = `
     UPDATE manager_rosters
     SET is_injured = 1, injured_since = ?
     WHERE user_id = ? AND player_id = ?
   `;
-  
+
   await db.prepare(query).run([injuredSince, userId, playerId]);
 };
 
@@ -164,7 +164,7 @@ export const releaseFromInjured = async (userId: string, playerId: string): Prom
     SET is_injured = 0, injured_since = NULL
     WHERE user_id = ? AND player_id = ?
   `;
-  
+
   await db.prepare(query).run([userId, playerId]);
 };
 
@@ -172,17 +172,17 @@ export const releaseFromInjured = async (userId: string, playerId: string): Prom
  * Add player to roster
  */
 export const addPlayerToRoster = async (
-  userId: string, 
-  playerId: string, 
+  userId: string,
+  playerId: string,
   playerType: 'regular' | 'rookie'
 ): Promise<void> => {
   const acquiredAt = new Date().toISOString();
-  
+
   const query = `
     INSERT INTO manager_rosters (user_id, player_id, player_type, acquired_at)
     VALUES (?, ?, ?, ?)
   `;
-  
+
   await db.prepare(query).run([userId, playerId, playerType, acquiredAt]);
 };
 
@@ -190,14 +190,14 @@ export const addPlayerToRoster = async (
  * Remove player from roster
  */
 export const removePlayerFromRoster = async (
-  userId: string, 
+  userId: string,
   playerId: string
 ): Promise<void> => {
   const query = `
     DELETE FROM manager_rosters
     WHERE user_id = ? AND player_id = ?
   `;
-  
+
   await db.prepare(query).run([userId, playerId]);
 };
 
@@ -217,18 +217,18 @@ export const checkRosterConstraints = async (userId: string): Promise<{
     FROM manager_rosters
     WHERE user_id = ?
   `;
-  
+
   const result = await db.prepare(query).get([userId]) as any;
   const errors: string[] = [];
-  
+
   if (result.active_count > 8) {
     errors.push('Active roster cannot exceed 8 players');
   }
-  
+
   if (result.active_rookie_count < 2) {
     errors.push('Active roster must have at least 2 rookies');
   }
-  
+
   return {
     valid: errors.length === 0,
     errors
@@ -242,7 +242,7 @@ export const setStarters = async (userId: string, starterIds: string[]): Promise
   // First, reset all starters
   const resetQuery = 'UPDATE manager_rosters SET is_starter = 0 WHERE user_id = ?';
   await db.prepare(resetQuery).run([userId]);
-  
+
   // Then set selected players as starters
   if (starterIds.length > 0) {
     const placeholders = starterIds.map(() => '?').join(',');
@@ -250,7 +250,7 @@ export const setStarters = async (userId: string, starterIds: string[]): Promise
       UPDATE manager_rosters SET is_starter = 1
       WHERE user_id = ? AND player_id IN (${placeholders})
     `;
-    
+
     await db.prepare(setQuery).run([userId, ...starterIds]);
   }
 };
@@ -267,9 +267,9 @@ export const createTrade = async (
     INSERT INTO manager_trades (from_user_id, to_user_id, trade_details, status)
     VALUES (?, ?, ?, 'pending')
   `;
-  
+
   const result = await db.prepare(query).run([fromUserId, toUserId, JSON.stringify(tradeDetails)]) as any;
-  return result.lastInsertRowid;
+  return result.lastID;
 };
 
 /**
@@ -280,7 +280,7 @@ export const voteOnTrade = async (tradeId: number, userId: string, vote: boolean
     INSERT INTO manager_trade_votes (trade_id, user_id, vote)
     VALUES (?, ?, ?)
   `;
-  
+
   try {
     await db.prepare(query).run([tradeId, userId, vote ? 1 : 0]);
   } catch (err: any) {
@@ -318,7 +318,7 @@ export const getPendingTrades = async (): Promise<any[]> => {
     GROUP BY mt.id
     ORDER BY mt.created_at DESC
   `;
-  
+
   return (await db.prepare(query).all([])) as unknown as any[];
 };
 
@@ -340,7 +340,7 @@ export const executeReshuffle = async (userId: string, retainedPlayerIds: string
     WHERE user_id = ? AND player_id NOT IN (${retainedPlayerIds.map(() => '?').join(',')})
   `;
   await db.prepare(deleteQuery).run([userId, ...retainedPlayerIds]);
-  
+
   // Then, record reshuffle
   const insertQuery = `
     INSERT INTO manager_reshuffles (user_id, retained_players)

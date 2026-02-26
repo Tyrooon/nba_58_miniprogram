@@ -3,6 +3,7 @@ import { syncDailyData, syncSeasonSchedule } from '../services/gameService';
 import { computeDayScores } from '../services/scoringService';
 import db from '../db';
 import { toDateKey } from '../utils/date';
+import { requireAdmin } from '../middleware/admin';
 
 const router = Router();
 
@@ -37,7 +38,7 @@ router.get('/daily-scoreboard', async (req, res, next) => {
   }
 });
 
-router.post('/sync', async (req, res, next) => {
+router.post('/sync', requireAdmin, async (req, res, next) => {
   try {
     // If no date is provided, maybe we should sync the WHOLE schedule?
     // Or user explicitly asks for schedule sync.
@@ -49,7 +50,7 @@ router.post('/sync', async (req, res, next) => {
   }
 });
 
-router.post('/sync-schedule', async (req, res, next) => {
+router.post('/sync-schedule', requireAdmin, async (req, res, next) => {
   try {
     const summary = await syncSeasonSchedule();
     res.json(summary);
@@ -58,7 +59,7 @@ router.post('/sync-schedule', async (req, res, next) => {
   }
 });
 
-router.post('/compute', async (req, res, next) => {
+router.post('/compute', requireAdmin, async (req, res, next) => {
   try {
     const result = await computeDayScores(req.body?.date);
     res.json(result);

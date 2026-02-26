@@ -112,12 +112,12 @@ export const computeDayScores = async (targetDate?: string) => {
   );
 
   const updateUserStmt = db.prepare(
-    `UPDATE users SET total_score = COALESCE(total_score, 0) + @score WHERE id = @userId`
+    `UPDATE users SET total_score = COALESCE(total_score, 0) + ? WHERE id = ?`
   );
 
   // Run updates sequentially
   for (const u of updates) {
-    await updateUserStmt.run({ score: u.total, userId: u.userId });
+    await updateUserStmt.run([u.total, u.userId]);
   }
 
   return { date: dateKey, updated: updates.length };

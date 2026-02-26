@@ -34,10 +34,10 @@ export const registerUser = async (username: string, password: string, nickname?
   const openid = `web_${username}`;
 
   const result = await db.prepare(
-    `INSERT INTO users (openid, username, password_hash, nickname) VALUES (@openid, @username, @passwordHash, @nickname)`
-  ).run({ openid, username, passwordHash, nickname: displayName }) as any;
+    `INSERT INTO users (openid, username, password_hash, nickname) VALUES (?, ?, ?, ?)`
+  ).run([openid, username, passwordHash, displayName]) as any;
 
-  const user = await db.prepare(`SELECT * FROM users WHERE id = ?`).get([result.lastInsertRowid]) as any;
+  const user = await db.prepare(`SELECT * FROM users WHERE id = ?`).get([result.lastID]) as any;
   return {
     id: user.id,
     username: user.username,
@@ -80,23 +80,23 @@ export const upsertUser = async (payload: UpsertUserInput) => {
     // 如果用户已存在，更新信息（如果提供了新值）
     const newNickname = payload.nickname ?? existing.nickname;
     const newAvatarUrl = payload.avatarUrl ?? existing.avatar_url;
-    await db.prepare(`UPDATE users SET nickname = @nickname, avatar_url = @avatarUrl WHERE id = @id`).run({
-      nickname: newNickname,
-      avatarUrl: newAvatarUrl,
-      id: existing.id,
-    });
+    await db.prepare(`UPDATE users SET nickname = ?, avatar_url = ? WHERE id = ?`).run([
+      newNickname,
+      newAvatarUrl,
+      existing.id,
+    ]);
     return { ...existing, nickname: newNickname, avatar_url: newAvatarUrl };
   }
 
   // 新用户：如果没有提供昵称，生成随机昵称
   const nickname = payload.nickname || generateRandomNickname();
-  
+
   const result = await db
     .prepare(
-      `INSERT INTO users (openid, nickname, avatar_url) VALUES (@openid, @nickname, @avatarUrl)`
+      `INSERT INTO users (openid, nickname, avatar_url) VALUES (?, ?, ?)`
     )
-    .run({ openid: payload.openid, nickname, avatarUrl: payload.avatarUrl }) as any;
-  return await db.prepare(`SELECT * FROM users WHERE id = ?`).get([result.lastInsertRowid]);
+    .run([payload.openid, nickname, payload.avatarUrl]) as any;
+  return await db.prepare(`SELECT * FROM users WHERE id = ?`).get([result.lastID]);
 };
 
 /**
@@ -107,16 +107,16 @@ export const updateUserProfile = async (userId: number, nickname?: string, avata
   if (!existing) {
     throw new Error('用户不存在');
   }
-  
+
   const newNickname = nickname ?? existing.nickname;
   const newAvatarUrl = avatarUrl ?? existing.avatar_url;
-  
+
   await db.prepare(`UPDATE users SET nickname = ?, avatar_url = ? WHERE id = ?`).run([
     newNickname,
     newAvatarUrl,
     userId,
   ]);
-  
+
   return {
     id: existing.id,
     nickname: newNickname,
@@ -146,15 +146,15 @@ export const addFrozenPlayer = async (params: { userId: number; playerId: number
   const expires = addDays(params.selectedDate, config.freezeDays);
   await db.prepare(
     `INSERT INTO frozen_players (user_id, player_id, player_name, play_mode, expires_at)
-     VALUES (@userId, @playerId, @playerName, @playMode, @expires)
+     VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(user_id, play_mode, player_id, expires_at) DO NOTHING`
-  ).run({
-    userId: params.userId,
-    playerId: params.playerId,
-    playerName: params.playerName,
-    playMode: params.playMode,
+  ).run([
+    params.userId,
+    params.playerId,
+    params.playerName,
+    params.playMode,
     expires,
-  });
+  ]);
 };
 
 export const removeFrozenPlayer = async (params: { userId: number; playerId: number; playMode: number; selectedDate: string }) => {
@@ -185,7 +185,7 @@ export const getLeaderboard = async (limit: number = 100) => {
     ORDER BY total_score DESC
     LIMIT ?
   `).all([limit]) as unknown as any[];
-  
+
   return users.map((user: any, index: number) => ({
     rank: index + 1,
     id: user.id,
@@ -205,7 +205,7 @@ export const getAllUsers = async (limit: number = 100) => {
     ORDER BY total_score DESC, created_at ASC
     LIMIT ?
   `).all([limit]) as unknown as any[];
-  
+
   return users.map((user: any, index: number) => ({
     rank: index + 1,
     id: user.id,
