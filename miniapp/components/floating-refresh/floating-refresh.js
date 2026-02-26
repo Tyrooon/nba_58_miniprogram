@@ -62,12 +62,12 @@ Component({
     // 设置拖拽监听
     setupDragListeners() {
       const systemInfo = wx.getSystemInfoSync();
-      const { windowWidth, windowHeight, statusBarHeight } = systemInfo;
+      const { windowWidth, windowHeight, statusBarHeight = 0 } = systemInfo;
 
       this.setData({
-        windowWidth,
-        windowHeight,
-        statusBarHeight
+        windowWidth: windowWidth || 375,
+        windowHeight: windowHeight || 667,
+        statusBarHeight: statusBarHeight || 0
       });
     },
 
@@ -108,8 +108,10 @@ Component({
       let newX = this.data.buttonX + deltaX;
       let newY = this.data.buttonY + deltaY;
 
-      // 限制拖拽范围
-      const { windowWidth, windowHeight, statusBarHeight } = this.data;
+      // 限制拖拽范围 - 添加默认值
+      const windowWidth = this.data.windowWidth || 375;
+      const windowHeight = this.data.windowHeight || 667;
+      const statusBarHeight = this.data.statusBarHeight || 0;
       const safeAreaWidth = windowWidth - 60; // 预留左右各30px边距
       const safeAreaHeight = windowHeight - statusBarHeight - 120; // 预留底部120px
 

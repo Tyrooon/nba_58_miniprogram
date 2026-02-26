@@ -1,5 +1,5 @@
 <!-- components/floating-refresh.wxml -->
-<view class="floating-refresh" wx:if="{{pagePath === 'pages/index/index'}}">
+<view class="floating-refresh" wx:if="{{pagePath === 'pages/index/index'}">
   <view class="refresh-button"
         style="position: absolute; left: {{buttonX}}px; top: {{buttonY}}px;"
         catchtouchstart="handleTouchStart"
