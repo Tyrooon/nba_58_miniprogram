@@ -1,5 +1,5 @@
 {
-  "containerPort": 4000,
+  "containerPort": 80,
   "dockerfilePath": "Dockerfile",
   "buildDir": "",
   "minNum": 1,
@@ -8,7 +8,9 @@
   "mem": 1.0,
   "policyType": "cpu",
   "policyThreshold": 60,
-  "envParams": {},
+  "envParams": {
+    "PORT": "80"
+  },
   "customLogs": "stdout",
   "initialDelaySeconds": 10
 }

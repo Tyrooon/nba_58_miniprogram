@@ -18,6 +18,6 @@ RUN cd server && npm prune --omit=dev
 
 WORKDIR /app/server
 
-EXPOSE 4000
+EXPOSE 80
 
 CMD ["node", "dist/index.js"]
