@@ -8,6 +8,7 @@
  * 用法:
  *   npx ts-node src/scripts/buildSeasonStats.ts          # 一次完整跑完
  *   npx ts-node src/scripts/buildSeasonStats.ts --batch 30  # 每次处理 30 天
+ *   npx ts-node src/scripts/buildSeasonStats.ts --from 2026-02-20 --to 2026-02-27  # 仅重跑指定日期
  */
 
 import fetch from 'node-fetch';
@@ -75,7 +76,7 @@ function getYesterday(): string {
 // ==================== API 请求 ====================
 
 const REQUEST_INTERVAL = 6000;
-const BACKOFF_ON_429 = 120_000;
+const BACKOFF_ON_429 = 15_000;
 const MAX_CONSECUTIVE_429 = 3;
 
 async function fetchBoxscores(dateStr: string): Promise<any | '429' | 'NETWORK_ERROR' | null> {
@@ -176,33 +177,55 @@ async function main() {
   const seasonStart = `${season}-10-20`;
   const endDate = getYesterday();
 
+  const fromIdx = process.argv.indexOf('--from');
+  const toIdx = process.argv.indexOf('--to');
+  const fromDate = fromIdx >= 0 ? process.argv[fromIdx + 1] : '';
+  const toDate = toIdx >= 0 ? process.argv[toIdx + 1] : '';
+
   const batchArg = process.argv.find(a => a === '--batch');
   const batchIdx = process.argv.indexOf('--batch');
   const batchSize = batchIdx >= 0 ? parseInt(process.argv[batchIdx + 1] || '0', 10) : 0;
 
-  console.log(`\n========== NBA Season ${season}-${season + 1} Stats Builder ==========`);
-  console.log(`  Season start : ${seasonStart}`);
-  console.log(`  End date     : ${endDate}`);
+  let dates: string[] = [];
+
+  if (fromDate && toDate) {
+    // 指定日期范围模式：只处理 fromDate 到 toDate，强制重跑
+    let cur = fromDate;
+    while (cur <= toDate) {
+      dates.push(cur);
+      cur = addDays(cur, 1);
+    }
+    // 先删除这些日期的旧数据，确保干净重写
+    for (const d of dates) {
+      await db.prepare('DELETE FROM player_game_log WHERE game_date = ? AND season = ?').run([d, season]);
+      await db.prepare('DELETE FROM sb_fetch_log WHERE date_key = ? AND season = ?').run([d, season]);
+    }
+    console.log(`\n========== NBA Season ${season}-${season + 1} Stats Builder (Range Mode) ==========`);
+    console.log(`  Date range   : ${fromDate} ~ ${toDate}`);
+    console.log(`  Dates to run : ${dates.length}`);
+  } else {
+    // 默认模式：按 sb_fetch_log 断点续传
+    const processedRows = await db.prepare(
+      'SELECT date_key FROM sb_fetch_log WHERE season = ?'
+    ).all([season]) as unknown as any[];
+    const processed = new Set(processedRows.map((r: any) => r.date_key));
+
+    let cur = seasonStart;
+    while (cur <= endDate) {
+      if (!processed.has(cur)) dates.push(cur);
+      cur = addDays(cur, 1);
+    }
+
+    console.log(`\n========== NBA Season ${season}-${season + 1} Stats Builder ==========`);
+    console.log(`  Season start : ${seasonStart}`);
+    console.log(`  End date     : ${endDate}`);
+    console.log(`  Already done : ${processed.size} dates`);
+    console.log(`  Remaining    : ${dates.length} dates`);
+  }
+
   console.log(`  Batch size   : ${batchSize || 'unlimited'}`);
   console.log(`  API interval : ${REQUEST_INTERVAL}ms`);
   console.log('');
-
-  // 获取已处理日期
-  const processedRows = await db.prepare(
-    'SELECT date_key FROM sb_fetch_log WHERE season = ?'
-  ).all([season]) as unknown as any[];
-  const processed = new Set(processedRows.map((r: any) => r.date_key));
-
-  // 生成待处理日期列表
-  const dates: string[] = [];
-  let cur = seasonStart;
-  while (cur <= endDate) {
-    if (!processed.has(cur)) dates.push(cur);
-    cur = addDays(cur, 1);
-  }
-
-  console.log(`  Already done : ${processed.size} dates`);
-  console.log(`  Remaining    : ${dates.length} dates`);
 
   if (dates.length === 0) {
     console.log('\n✅ All dates already processed! Season stats are up to date.\n');
