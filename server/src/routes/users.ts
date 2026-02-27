@@ -2,9 +2,10 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { upsertUser, getUserById, getUserFrozenPlayers, updateUserProfile, getLeaderboard, getAllUsers, registerUser, authLogin, syncUserFromCloudFunction } from '../services/userService';
+import { paths } from '../config';
 import { upsertUser, getUserById, getUserFrozenPlayers, updateUserProfile, getLeaderboard, getAllUsers, registerUser, authLogin, syncUserFromCloudFunction } from '../services/userService';
 
+const router = Router();
 const avatarDir = path.resolve(paths.data, 'uploads', 'avatars');
 fs.mkdirSync(avatarDir, { recursive: true });
 
@@ -162,7 +163,6 @@ router.get('/:userId/frozen', async (req, res) => {
   res.json(list);
 });
 
-export default router;
 // 微信小程序用户同步接口：从小程序云函数同步用户信息到本地
 router.post('/sync-user', async (req, res) => {
   try {
@@ -181,3 +181,5 @@ router.post('/sync-user', async (req, res) => {
     res.status(500).json({ message: error.message || '同步失败' });
   }
 });
+
+export default router;

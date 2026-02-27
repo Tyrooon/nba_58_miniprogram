@@ -217,3 +217,53 @@ export const getAllUsers = async (limit: number = 100) => {
     totalScore: user.total_score || 0,
   }));
 };
+
+/**
+ * 从微信小程序云函数同步用户信息到本地数据库
+ */
+export const syncUserFromCloudFunction = async (openid: string, nickname?: string, avatarUrl?: string) => {
+  const existing = await db.prepare(`SELECT * FROM users WHERE openid = ?`).get([openid]) as any;
+
+  if (existing) {
+    // 用户已存在，更新昵称和头像（如果提供了新值）
+    const newNickname = nickname ?? existing.nickname;
+    const newAvatarUrl = avatarUrl ?? existing.avatar_url;
+
+    await db.prepare(`UPDATE users SET nickname = ?, avatar_url = ? WHERE id = ?`).run([
+      newNickname,
+      newAvatarUrl,
+      existing.id,
+    ]);
+
+    return {
+      id: existing.id,
+      openid: existing.openid,
+      username: existing.username,
+      nickname: newNickname,
+      avatarUrl: newAvatarUrl,
+      totalScore: existing.total_score,
+      createdAt: existing.created_at,
+    };
+  }
+
+  // 新用户：如果没有提供昵称，生成随机昵称
+  const finalNickname = nickname || generateRandomNickname();
+
+  const result = await db
+    .prepare(
+      `INSERT INTO users (openid, nickname, avatar_url) VALUES (?, ?, ?)`
+    )
+    .run([openid, finalNickname, avatarUrl]) as any;
+
+  const user = await db.prepare(`SELECT * FROM users WHERE id = ?`).get([result.lastID]) as any;
+
+  return {
+    id: user.id,
+    openid: user.openid,
+    username: user.username,
+    nickname: user.nickname,
+    avatarUrl: user.avatar_url,
+    totalScore: user.total_score,
+    createdAt: user.created_at,
+  };
+};
