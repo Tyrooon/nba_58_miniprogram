@@ -6,7 +6,7 @@ dotenv.config({
 });
 
 export const config = {
-  port: Number(process.env.PORT ?? 4000),
+  port: Number(process.env.PORT ?? 80),
   ballDontLieBase: process.env.BALL_DONT_LIE_BASE ?? 'https://api.balldontlie.io/v1',
   ballDontLieApiKey: process.env.BALL_DONT_LIE_API_KEY ?? '',
   // FIX: Current date is Nov 2025, so the season is 2025-2026.
