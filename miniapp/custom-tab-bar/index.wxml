@@ -12,7 +12,7 @@
   <!-- NBA 58 Button -->
   <view class="tab-bar-item center-item" bindtap="showGameModes">
     <view class="nba-btn">
-      <image class="nba-icon" src="/images/nba58.jpg" mode="aspectFit"></image>
+      <image class="nba-icon" src="/images/nba58.png" mode="aspectFit"></image>
     </view>
     <view class="selection-hint">
       <text class="selection-date">{{selectedDateLabel || '选择比赛日'}}</text>

@@ -3,6 +3,7 @@
   "projectname": "nba-guess-miniapp",
   "description": "NBA球星58竞猜微信小程序",
   "appid": "wx37e8bfa82fae62d0",
+  "lazyCodeLoading": "requiredComponents",
   "compileType": "miniprogram",
   "setting": {
     "es6": true,

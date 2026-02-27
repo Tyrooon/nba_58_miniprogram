@@ -8,6 +8,11 @@ App({
     selectedGameDate: '',
   },
   async onLaunch() {
+    // 初始化微信云开发，连接到云托管环境
+    wx.cloud.init({
+      env: 'prod-6gd4czxs81560b5d',
+    });
+
     try {
       await this.ensureLogin();
     } catch (error) {
