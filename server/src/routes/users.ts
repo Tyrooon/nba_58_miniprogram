@@ -2,10 +2,8 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { upsertUser, getUserById, getUserFrozenPlayers, updateUserProfile, getLeaderboard, getAllUsers, registerUser, authLogin } from '../services/userService';
-import { paths } from '../config';
-
-const router = Router();
+import { upsertUser, getUserById, getUserFrozenPlayers, updateUserProfile, getLeaderboard, getAllUsers, registerUser, authLogin, syncUserFromCloudFunction } from '../services/userService';
+import { upsertUser, getUserById, getUserFrozenPlayers, updateUserProfile, getLeaderboard, getAllUsers, registerUser, authLogin, syncUserFromCloudFunction } from '../services/userService';
 
 const avatarDir = path.resolve(paths.data, 'uploads', 'avatars');
 fs.mkdirSync(avatarDir, { recursive: true });
@@ -165,3 +163,21 @@ router.get('/:userId/frozen', async (req, res) => {
 });
 
 export default router;
+// 微信小程序用户同步接口：从小程序云函数同步用户信息到本地
+router.post('/sync-user', async (req, res) => {
+  try {
+    const { openid, nickname, avatarUrl } = req.body;
+
+    if (!openid) {
+      return res.status(400).json({ message: '缺少 openid' });
+    }
+
+    // 调用服务函数同步用户信息到本地
+    const user = await syncUserFromCloudFunction(openid, nickname, avatarUrl);
+
+    res.json(user);
+  } catch (error: any) {
+    console.error('同步用户信息失败:', error);
+    res.status(500).json({ message: error.message || '同步失败' });
+  }
+});

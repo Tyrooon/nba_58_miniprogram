@@ -4,10 +4,13 @@ import { config } from '../config';
 import { addDays } from '../utils/date';
 
 interface UpsertUserInput {
-  openid: string;
+  openid?: string;
+  code?: string;  // 兼容原有登录方式
   nickname?: string;
   avatarUrl?: string;
 }
+
+// 为支持微信小程序自动登录，新增 OPENID 用户表相关函数
 
 const USERNAME_RE = /^[A-Za-z0-9_]{3,20}$/;
 
