@@ -10,7 +10,7 @@ App({
   async onLaunch() {
     // 初始化微信云开发，连接到云托管环境
     wx.cloud.init({
-      env: 'prod-6gd4czxs81560b5d',
+      env: 'nba-58-6g2gfl7c61fc6031',
     });
 
     try {
