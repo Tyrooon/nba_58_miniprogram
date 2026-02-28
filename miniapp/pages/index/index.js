@@ -307,38 +307,53 @@ Page({
     wx.showLoading({ title: '刷新比分...' });
     try {
       const today = dayjs().format('YYYY-MM-DD');
-      
+
       // 使用快速刷新API，只更新比分，不更新球员数据
       const res = await request({
         url: '/games/refresh-scores',
         method: 'POST',
         data: { date: today }
       });
-      
+
       wx.hideLoading();
-      
+
       if (res && res.updated > 0) {
         wx.showToast({
           title: `已更新${res.updated}场比赛`,
           icon: 'success',
           duration: 2000
         });
-        
-        // 重新加载当天数据
+
+        // 使用 includePlayers=false 参数重新加载当天比分（不包含球员数据）
         const refreshRes = await request({
           url: '/games/range',
-          data: { start: today, end: today }
+          data: { start: today, end: today, includePlayers: false }
         });
-        
+
         if (refreshRes && refreshRes.length > 0) {
           const updatedDay = refreshRes[0];
           const newList = this.data.gameList.map(g => {
             if (g.date === today) {
-              return updatedDay;
+              // 保留原有的球员数据，只更新比分
+              const existingGames = g.games || [];
+              const updatedGames = updatedDay.games || [];
+              const mergedGames = existingGames.map(existing => {
+                const updated = updatedGames.find(u => u.external_id === existing.external_id);
+                if (updated) {
+                  return {
+                    ...existing,
+                    home_score: updated.home_score,
+                    visitor_score: updated.visitor_score,
+                    status: updated.status,
+                  };
+                }
+                return existing;
+              });
+              return { date: today, games: mergedGames };
             }
             return g;
           });
-          
+
           this.setData({ gameList: newList });
         }
       } else {

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { syncDailyData, syncSingleDate, refreshTodayScores, getGamesWithPlayers, getGamesByDateRange, getNextGameDayPlayers, getUpcomingGameDates, shouldSync } from '../services/gameService';
+import { syncDailyData, syncSingleDate, refreshTodayScores, getGamesWithPlayers, getGamesByDateRange, getGamesByDateRangeWithoutPlayers, getNextGameDayPlayers, getUpcomingGameDates, shouldSync } from '../services/gameService';
 import { computeDayScores } from '../services/scoringService';
 import { toDateKey } from '../utils/date';
 import { MemCache } from '../utils/cache';
@@ -30,15 +30,31 @@ router.get('/today', async (req, res, next) => {
   }
 });
 
-router.get('/range', async (req, res, next) => {
+router.get('/range-scores-only', async (req, res, next) => {
   try {
     const { start, end } = req.query;
     if (!start || !end) {
       return res.status(400).json({ message: 'start and end dates are required' });
     }
-    const cacheKey = `range:${start}:${end}`;
+    const list = await getGamesByDateRangeWithoutPlayers(String(start), String(end));
+    res.json(list);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/range', async (req, res, next) => {
+  try {
+    const { start, end, includePlayers } = req.query;
+    if (!start || !end) {
+      return res.status(400).json({ message: 'start and end dates are required' });
+    }
+    const includePlayersData = includePlayers !== 'false';
+    const cacheKey = `range:${start}:${end}:${includePlayersData}`;
     const list = await gamesCache.getOrSet(cacheKey, () =>
-      getGamesByDateRange(String(start), String(end))
+      includePlayersData
+        ? getGamesByDateRange(String(start), String(end))
+        : getGamesByDateRangeWithoutPlayers(String(start), String(end))
     );
     res.json(list);
   } catch (error) {

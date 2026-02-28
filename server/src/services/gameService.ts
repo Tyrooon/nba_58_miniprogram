@@ -762,6 +762,40 @@ export const getUpcomingGameDates = async (limit: number = 7): Promise<string[]>
 };
 
 /**
+ * 获取日期范围内的比赛（不包含球员数据，用于刷新比分）
+ */
+export const getGamesByDateRangeWithoutPlayers = async (start: string, end: string) => {
+  const stmt = db.prepare(`
+    SELECT * FROM games
+    WHERE game_date >= ? AND game_date <= ?
+    ORDER BY game_date ASC, tipoff ASC
+  `);
+  const games = await stmt.all([start, end]) as unknown as any[];
+
+  // 按日期分组
+  const result: { date: string; games: any[] }[] = [];
+  const dateMap = new Map<string, any[]>();
+
+  for (const game of games) {
+    if (!game || !game.game_date) continue;
+    if (!dateMap.has(game.game_date)) {
+      dateMap.set(game.game_date, []);
+    }
+    // 不返回球员数据，只返回比赛信息
+    dateMap.get(game.game_date)!.push(game);
+  }
+
+  for (const [date, dateGames] of dateMap) {
+    result.push({ date, games: dateGames });
+  }
+
+  // 按日期排序
+  result.sort((a, b) => a.date.localeCompare(b.date));
+
+  return result;
+};
+
+/**
  * 获取日期范围内的比赛（包含球员数据）
  */
 export const getGamesByDateRange = async (start: string, end: string) => {
