@@ -1,9 +1,10 @@
 import cron from 'node-cron';
 import { config } from '../config';
-import { syncDailyData, shouldSync } from '../services/gameService';
+import { syncDailyData, shouldSync, refreshTodayScores } from '../services/gameService';
 import { computeDayScores } from '../services/scoringService';
 import { purgeExpiredFrozen } from '../services/userService';
 import { processSeasonStats } from '../services/seasonStatsService';
+import { getTodayBeijing } from '../services/hybridNbaService';
 
 export const bootstrapSchedulers = () => {
   console.log('[scheduler] Bootstrapping schedulers...');
@@ -28,13 +29,29 @@ export const bootstrapSchedulers = () => {
     }
   });
 
+  // 计分任务：轮询，当天所有比赛结束后自动刷新比分并记分
   cron.schedule(config.scoreCron, async () => {
     try {
-      console.log('[cron] Score computation triggered');
-      const summary = await computeDayScores();
-      console.info(`[cron] 计分完成`, summary);
+      const today = getTodayBeijing();
+      console.log('[cron] Score job triggered for', today);
+
+      // 1) 刷新当天所有已结束比赛的比分和球员 boxscore 到 daily_players
+      const refresh = await refreshTodayScores(today);
+      console.log(
+        `[cron] refreshTodayScores: date=${refresh.date}, games=${refresh.games}, updated=${refresh.updated}, playersUpdated=${refresh.playersUpdated}, allFinished=${refresh.allFinished}`
+      );
+
+      // 2) 如果还有比赛未 Final，则先不记分，等下一轮 cron 再来
+      if (!refresh.allFinished) {
+        console.log('[cron] Some games not finished yet, skip scoring this round');
+        return;
+      }
+
+      // 3) 所有比赛都 Final 时，统一对当天所有选人计算得分
+      const summary = await computeDayScores(today);
+      console.info('[cron] 计分完成', summary);
     } catch (error: unknown) {
-      console.error('[cron] 计分失败', error);
+      console.error('[cron] 计分任务失败', error);
       console.error('[cron] Error stack:', error instanceof Error ? error.stack : String(error));
     }
   });

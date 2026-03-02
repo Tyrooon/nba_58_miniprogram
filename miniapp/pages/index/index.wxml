@@ -2,46 +2,46 @@
   <!-- Header Section -->
   <view class="header">
     <view class="header-top">
-      <view class="season-selector">
-        <picker mode="selector" range="{{seasons}}" bindchange="handleSeasonChange">
-          <view class="season-picker">
-            <text>{{currentSeason || '2024-2025'}}</text>
-            <text class="picker-arrow">▼</text>
-          </view>
-        </picker>
-      </view>
-      
-      <view class="actions">
-          <view class="mode-badge" bindtap="handleSyncSchedule">
-              <text>更新赛程</text>
-          </view>
-          <view class="mode-badge" bindtap="scrollToToday">
-              <text>回到今天</text>
-          </view>
+      <view class="season-info">
+        <text class="season-text">{{currentSeason || '2025-2026'}}</text>
+        <text class="season-type">{{seasonType || '常规赛'}}</text>
       </view>
     </view>
 
-    <view class="mode-status-card">
-      <view class="mode-row">
-        <text class="mode-label">当前玩法</text>
-        <text class="mode-value">{{currentModeName}}</text>
+    <!-- 可回收的玩法状态栏 -->
+    <view class="mode-status-card {{modeCardCollapsed ? 'collapsed' : ''}}" bindtap="toggleModeCard">
+      <view wx:if="{{!modeCardCollapsed}}" class="mode-card-content">
+        <view class="mode-row">
+          <text class="mode-label">当前玩法</text>
+          <text class="mode-value">{{currentModeName}}</text>
+        </view>
+        <view class="mode-row">
+          <text class="mode-label">已选球员</text>
+          <text class="mode-value">{{currentModeSelectionName || '未选择'}}</text>
+        </view>
+        <view class="mode-row" wx:if="{{selectionLockTime}}">
+          <text class="mode-label">锁定时间</text>
+          <text class="mode-value">{{selectionLockDateText ? (selectionLockDateText + ' ') : ''}}{{selectionLockTime}}</text>
+          <text class="mode-lock" wx:if="{{!canModifySelection}}">已锁定</text>
+        </view>
       </view>
-      <view class="mode-row">
-        <text class="mode-label">已选球员</text>
-        <text class="mode-value">{{currentModeSelectionName || '未选择'}}</text>
-      </view>
-      <view class="mode-row" wx:if="{{selectionLockTime}}">
-        <text class="mode-label">锁定时间</text>
-        <text class="mode-value">{{selectionLockDateText ? (selectionLockDateText + ' ') : ''}}{{selectionLockTime}}</text>
-        <text class="mode-lock" wx:if="{{!canModifySelection}}">已锁定</text>
+      <!-- 收起状态：显示玩法图标 + 当前比赛日 -->
+      <view wx:else class="mode-card-collapsed">
+        <view class="mode-icon-badge mode-{{selectedMode}}">
+          <text wx:if="{{selectedMode === 1}}">常</text>
+          <text wx:if="{{selectedMode === 2}}">+58</text>
+          <text wx:if="{{selectedMode === 3}}">-58</text>
+        </view>
+        <text class="collapsed-date">{{selectedSelectionDateText || selectedSelectionDate}}</text>
+        <text class="collapse-arrow">▼</text>
       </view>
     </view>
   </view>
 
   <!-- Timeline List -->
-  <scroll-view 
+  <scroll-view
     class="timeline-scroll"
-    scroll-y 
+    scroll-y
     enable-back-to-top
     scroll-into-view="{{toView}}"
     bindscrolltoupper="handleScrollToUpper"
@@ -53,6 +53,11 @@
       <!-- Loading Indicator Top -->
       <view class="loading-more" wx:if="{{loadingMorePast}}">
         <view class="spinner"></view>
+      </view>
+
+      <!-- 到底提示 -->
+      <view class="end-tip" wx:if="{{noMorePast}}">
+        <text>已经是最早的比赛了</text>
       </view>
 
       <!-- Days Group -->
@@ -95,12 +100,12 @@
                     <image class="team-logo" src="https://cdn.nba.com/logos/nba/{{game.home_team_id}}/global/L/logo.svg" mode="aspectFit"></image>
                     <view class="team-name">{{game.home_team_name}}</view>
                   </view>
-                  
+
                   <!-- Expand Icon Absolute -->
                    <view class="expand-tag">
                       {{activeGameId === game.external_id ? '▲' : '▼'}}
-    </view>
-  </view>
+                    </view>
+                </view>
 
                 <!-- Expanded Content -->
                 <view class="players-section" wx:if="{{activeGameId === game.external_id}}">
@@ -109,7 +114,7 @@
                      <text>{{game.status === 'In Progress' || game.status === 'Final' ? '技术统计' : '选择球员'}} ({{currentModeName}})</text>
                      <view class="refresh-text" catchtap="handleSyncDay" data-date="{{dayGroup.date}}">刷新</view>
                   </view>
-                  
+
                   <!-- Loading State inside Card -->
                   <view class="card-loading" wx:if="{{gameLoading === game.external_id}}">
                     <view class="spinner"></view>
@@ -126,17 +131,17 @@
                         <view class="team-column-list player-grid">
                           <block wx:if="{{game.visitorPlayersSorted.length}}">
                             <block wx:for="{{game.visitorPlayersSorted}}" wx:key="player_id" wx:for-item="player">
-        <view
+                              <view
                                 class="player-chip {{frozenPlayerIds.indexOf(player.player_id) > -1 ? 'disabled' : ''}}"
                                 data-player="{{player}}"
                                 data-date="{{dayGroup.date}}"
                                 bindtap="handleSelectPlayer"
-        >
+                              >
                                 <view class="player-info">
                                   <view class="p-name">{{player.player_name}}</view>
                                   <view class="p-team">{{player.team_name}}</view>
-                              <view class="p-avg-inline">均 {{player.seasonAvgDisplay || '--'}}</view>
-        </view>
+                                  <view class="p-avg-inline">均 {{player.seasonAvgDisplay || '--'}}</view>
+                                </view>
                                 <view class="p-stat">
                                   <block wx:if="{{game.status === 'In Progress' || game.status === 'Final'}}">
                                     <text class="p-live-score {{player.stats_points >= 10 ? 'high' : ''}}">{{player.stats_points}}</text>
@@ -144,34 +149,34 @@
                                   </block>
                                   <block wx:else>
                                     <view class="p-avg">均 {{player.seasonAvgDisplay || '--'}}</view>
-      </block>
+                                  </block>
                                 </view>
                               </view>
                             </block>
                           </block>
                           <view wx:else class="no-players-mini">暂无数据</view>
-    </view>
-  </view>
+                        </view>
+                      </view>
 
                       <view class="team-column home-column">
                         <view class="team-column-header">
                           <text class="team-column-name">{{game.home_team_name}}</text>
                           <text class="team-column-sub">主队</text>
-        </view>
+                        </view>
                         <view class="team-column-list player-grid">
                           <block wx:if="{{game.homePlayersSorted.length}}">
                             <block wx:for="{{game.homePlayersSorted}}" wx:key="player_id" wx:for-item="player">
-              <view
+                              <view
                                 class="player-chip {{frozenPlayerIds.indexOf(player.player_id) > -1 ? 'disabled' : ''}}"
                                 data-player="{{player}}"
                                 data-date="{{dayGroup.date}}"
-                bindtap="handleSelectPlayer"
-              >
+                                bindtap="handleSelectPlayer"
+                              >
                                 <view class="player-info">
                                   <view class="p-name">{{player.player_name}}</view>
                                   <view class="p-team">{{player.team_name}}</view>
                                   <view class="p-avg-inline">均 {{player.seasonAvgDisplay || '--'}}</view>
-              </view>
+                                </view>
                                 <view class="p-stat">
                                   <block wx:if="{{game.status === 'In Progress' || game.status === 'Final'}}">
                                     <text class="p-live-score {{player.stats_points >= 10 ? 'high' : ''}}">{{player.stats_points}}</text>
@@ -179,7 +184,7 @@
                                   </block>
                                   <block wx:else>
                                     <view class="p-avg">均 {{player.seasonAvgDisplay || '--'}}</view>
-            </block>
+                                  </block>
                                 </view>
                               </view>
                             </block>
@@ -194,11 +199,11 @@
                       <view>暂无数据</view>
                       <button size="mini" bindtap="handleSyncDay" data-date="{{dayGroup.date}}" class="mini-sync-btn">刷新数据</button>
                     </view>
-          </view>
-        </view>
-      </view>
-    </block>
-  </block>
+                  </view>
+                </view>
+              </view>
+            </block>
+          </block>
           <view wx:else class="no-games-day">本日无比赛</view>
         </view>
       </block>
@@ -207,11 +212,16 @@
       <view class="loading-more" wx:if="{{loadingMoreFuture}}">
         <view class="spinner"></view>
       </view>
+
+      <!-- 到底提示 -->
+      <view class="end-tip" wx:if="{{noMoreFuture}}">
+        <text>已经是最新的比赛了</text>
+      </view>
     </view>
   </scroll-view>
-  
+
   <!-- Floating Refresh Button -->
-  <view class="floating-refresh" bindtap="handleRefreshToday">
+  <view class="floating-refresh" bindtap="handleRefreshVisible">
     <text class="refresh-icon">↻</text>
   </view>
 </view>

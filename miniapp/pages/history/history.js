@@ -13,6 +13,10 @@ Page({
   async onShow() {
     const app = getApp();
     const user = await app.ensureLogin();
+    if (!user) {
+      wx.showToast({ title: '请先关联网页端账号', icon: 'none' });
+      return wx.switchTab({ url: '/pages/profile/profile' });
+    }
     this.setData({ user });
     this.loadHistory();
   },

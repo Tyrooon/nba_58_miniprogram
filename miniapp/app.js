@@ -6,19 +6,19 @@ App({
     currentMode: 'regular',
     currentModeId: 1,
     selectedGameDate: '',
+    loadedGameDates: [],
   },
   async onLaunch() {
     // 初始化微信云开发，连接到云托管环境
     wx.cloud.init({
       env: 'nba-58-6g2gfl7c61fc6031',
     });
-
-    try {
-      await this.ensureLogin();
-    } catch (error) {
-      console.error('初始化登录失败', error);
-    }
   },
+
+  /**
+   * 获取已关联的用户（仅本地缓存）。
+   * 未关联时返回 null（不会请求后端，也不会写库）。
+   */
   async ensureLogin() {
     if (this.globalData.user) return this.globalData.user;
     const cached = wx.getStorageSync('user');
@@ -26,37 +26,11 @@ App({
       this.globalData.user = cached;
       return cached;
     }
-    const loginRes = await wx.login();
-    const profile = await this.getProfile();
-    const payload = {
-      code: loginRes.code,
-      nickname: (profile && profile.nickName) || `球迷${Date.now().toString().slice(-4)}`,
-      avatarUrl: profile && profile.avatarUrl,
-    };
-    const user = await request({ url: '/users/login', method: 'POST', data: payload });
-    wx.setStorageSync('user', user);
-    this.globalData.user = user;
-    return user;
+    return null;
   },
+
   updateUserCache(user) {
     this.globalData.user = user;
     wx.setStorageSync('user', user);
   },
-  getProfile() {
-    return new Promise((resolve) => {
-      if (!wx.getUserProfile) return resolve(null);
-      wx.getUserProfile({
-        desc: '用于展示头像和昵称',
-        success: (res) => resolve(res.userInfo),
-        fail: () => resolve(null),
-      });
-    });
-  },
 });
-
-
-
-
-
-
-

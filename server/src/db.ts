@@ -93,6 +93,7 @@ const bootstrap = async () => {
         avatar TEXT,
         avatar_url TEXT,
         openid TEXT NOT NULL UNIQUE,
+        phone TEXT,
         username TEXT UNIQUE,
         password_hash TEXT,
         score INTEGER DEFAULT 0,
@@ -346,6 +347,13 @@ const bootstrap = async () => {
     if (!hasIsAdmin) {
       await db.exec(`ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0`);
       console.log('Added is_admin column to users table');
+    }
+
+    // Migration for phone column
+    const hasPhone = userColumns?.some((col: any) => col.name === 'phone');
+    if (!hasPhone) {
+      await db.exec(`ALTER TABLE users ADD COLUMN phone TEXT`);
+      console.log('Added phone column to users table');
     }
 
     // Migration for total_score column

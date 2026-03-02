@@ -23,6 +23,26 @@
   align-items: center;
 }
 
+.season-info {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.season-text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1F2937;
+}
+
+.season-type {
+  font-size: 24rpx;
+  color: #6B7280;
+  background: #F3F4F6;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+}
+
 .mode-status-card {
   background: #fff;
   border-radius: 20rpx;
@@ -667,4 +687,75 @@
   font-size: 50rpx;
   line-height: 1;
   font-weight: bold;
+}
+
+/* 到底提示 */
+.end-tip {
+  text-align: center;
+  padding: 30rpx;
+  color: #9CA3AF;
+  font-size: 24rpx;
+}
+
+/* 玩法卡片收起状态 */
+.mode-status-card.collapsed {
+  padding: 16rpx 24rpx;
+}
+
+.mode-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.mode-card-collapsed {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.mode-icon-badge {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  font-weight: 700;
+  border-width: 2rpx;
+  border-style: solid;
+}
+
+/* 常规模式：浅蓝色底+深蓝色字+深蓝色边框 */
+.mode-icon-badge.mode-1 {
+  background: #EFF6FF;
+  color: #1E40AF;
+  border-color: #3B82F6;
+}
+
+/* 正58模式：浅红色底+深红色字+深红色边框 */
+.mode-icon-badge.mode-2 {
+  background: #FEE2E2;
+  color: #991B1B;
+  border-color: #DC2626;
+}
+
+/* 负58模式：浅绿色底+深绿色字+深绿色边框 */
+.mode-icon-badge.mode-3 {
+  background: #DCFCE7;
+  color: #166534;
+  border-color: #16A34A;
+}
+
+.collapsed-date {
+  flex: 1;
+  font-size: 28rpx;
+  color: #374151;
+  font-weight: 500;
+}
+
+.collapse-arrow {
+  font-size: 20rpx;
+  color: #9CA3AF;
 }

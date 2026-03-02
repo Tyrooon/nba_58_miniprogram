@@ -1,0 +1,60 @@
+<view class="page-container">
+  <!-- Nav Bar -->
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">← 返回</view>
+    <view class="nav-home" bindtap="goHome">🏠 首页</view>
+  </view>
+
+  <!-- Header -->
+  <view class="header">
+    <view class="header-title">🗓️ 每日得分看板</view>
+    <view class="header-subtitle">查看每日各玩法的得分情况</view>
+  </view>
+
+  <!-- Date Picker -->
+  <view class="date-picker-section">
+    <picker mode="date" value="{{scoreboardDate}}" bindchange="onDateChange">
+      <view class="date-picker-btn">
+        <text>{{scoreboardDateText}}</text>
+        <text class="picker-arrow">▼</text>
+      </view>
+    </picker>
+  </view>
+
+  <!-- Mode Tabs -->
+  <view class="scoreboard-tabs">
+    <view class="sb-tab {{scoreboardMode === 1 ? 'active' : ''}}" bindtap="switchMode" data-mode="1">常规</view>
+    <view class="sb-tab {{scoreboardMode === 2 ? 'active' : ''}}" bindtap="switchMode" data-mode="2">正58</view>
+    <view class="sb-tab {{scoreboardMode === 3 ? 'active' : ''}}" bindtap="switchMode" data-mode="3">负58</view>
+  </view>
+
+  <!-- Formula -->
+  <view class="scoreboard-formula">{{scoreboardFormula}}</view>
+
+  <!-- Loading -->
+  <view class="loading-container" wx:if="{{loading}}">
+    <view class="loading-spinner"></view>
+    <text>加载中...</text>
+  </view>
+
+  <!-- List -->
+  <scroll-view class="scoreboard-list" scroll-y wx:if="{{!loading}}">
+    <view wx:if="{{scoreboardData.length}}">
+      <view class="sc-card" wx:for="{{scoreboardData}}" wx:key="id">
+        <view class="sc-header">
+          <text class="sc-user">{{item.user_name}}</text>
+          <text class="sc-total {{item.total_score >= 0 ? 'positive' : 'negative'}}">{{item.displayScore}}</text>
+        </view>
+        <view class="sc-body">
+          <view class="sc-player">选择: {{item.player_name}}{{item.season_avg ? ' (均 ' + item.season_avg + ')' : ''}}</view>
+          <view class="sc-actual">{{item.actual_score !== null ? '实际 ' + item.actual_score + '分' : '未结算'}}</view>
+        </view>
+        <view wx:if="{{item.calcDetail}}" class="sc-calc">{{item.calcDetail}}</view>
+      </view>
+    </view>
+    <view wx:else class="empty-state">
+      <text class="empty-icon">📊</text>
+      <text class="empty-text">暂无选择</text>
+    </view>
+  </scroll-view>
+</view>

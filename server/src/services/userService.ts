@@ -77,6 +77,9 @@ export const authLogin = async (username: string, password: string) => {
   };
 };
 
+export const getUserByOpenid = async (openid: string) =>
+  await db.prepare(`SELECT * FROM users WHERE openid = ?`).get([openid]);
+
 export const upsertUser = async (payload: UpsertUserInput) => {
   const existing = await db.prepare(`SELECT * FROM users WHERE openid = ?`).get([payload.openid]) as any;
   if (existing) {
@@ -125,6 +128,149 @@ export const updateUserProfile = async (userId: number, nickname?: string, avata
     nickname: newNickname,
     avatar_url: newAvatarUrl,
     total_score: existing.total_score,
+  };
+};
+
+/**
+ * 更新用户手机号
+ */
+export const updateUserPhone = async (userId: number, phone: string) => {
+  const existing = await db.prepare(`SELECT * FROM users WHERE id = ?`).get([userId]) as any;
+  if (!existing) {
+    throw new Error('用户不存在');
+  }
+
+  // 检查手机号是否已被其他用户使用
+  const phoneUser = await db.prepare(`SELECT id FROM users WHERE phone = ? AND id != ?`).get([phone, userId]) as any;
+  if (phoneUser) {
+    throw new Error('该手机号已被其他用户绑定');
+  }
+
+  await db.prepare(`UPDATE users SET phone = ? WHERE id = ?`).run([phone, userId]);
+
+  return {
+    id: existing.id,
+    nickname: existing.nickname,
+    avatar_url: existing.avatar_url,
+    phone,
+    total_score: existing.total_score,
+  };
+};
+
+/**
+ * 关联账号：将小程序账号与网页端账号关联
+ * 验证用户名密码后，将网页端账号的 openid 更新为小程序的 openid
+ */
+export const linkAccount = async (wxUserId: number, username: string, password: string) => {
+  const bcrypt = await import('bcryptjs');
+
+  // 1. 获取当前小程序用户
+  const wxUser = await db.prepare(`SELECT * FROM users WHERE id = ?`).get([wxUserId]) as any;
+  if (!wxUser) {
+    throw new Error('当前用户不存在');
+  }
+
+  // 2. 查找网页端账号
+  const webUser = await db.prepare(`SELECT * FROM users WHERE username = ?`).get([username]) as any;
+  if (!webUser) {
+    throw new Error('用户名不存在');
+  }
+
+  // 3. 验证密码
+  if (!webUser.password_hash) {
+    throw new Error('该账号未设置密码，无法关联');
+  }
+
+  const isValidPassword = await bcrypt.default.compare(password, webUser.password_hash);
+  if (!isValidPassword) {
+    throw new Error('密码错误');
+  }
+
+  // 4. 检查是否已经是同一个账号
+  if (wxUser.id === webUser.id) {
+    throw new Error('该账号已与当前微信账号关联');
+  }
+
+  // 5. 检查网页端账号是否已被其他微信账号关联
+  if (webUser.openid && webUser.openid !== wxUser.openid) {
+    // 网页端账号已有 openid，需要确认不是其他微信用户
+    const otherWxUser = await db.prepare(`SELECT id FROM users WHERE openid = ? AND id != ?`).get([webUser.openid, webUser.id]) as any;
+    if (otherWxUser) {
+      throw new Error('该账号已被其他微信用户关联');
+    }
+  }
+
+  // 6. 迁移数据：将小程序用户的数据迁移到网页端账号
+  // 迁移选择记录
+  await db.prepare(`UPDATE selections SET user_id = ? WHERE user_id = ?`).run([webUser.id, wxUser.id]);
+
+  // 迁移冷冻球员记录
+  await db.prepare(`UPDATE frozen_players SET user_id = ? WHERE user_id = ?`).run([webUser.id, wxUser.id]);
+
+  // 7. 更新网页端账号的 openid 为小程序的 openid
+  await db.prepare(`UPDATE users SET openid = ? WHERE id = ?`).run([wxUser.openid, webUser.id]);
+
+  // 8. 删除原来的小程序用户记录（数据已迁移）
+  await db.prepare(`DELETE FROM users WHERE id = ?`).run([wxUser.id]);
+
+  // 9. 返回关联后的用户信息
+  const linkedUser = await db.prepare(`SELECT * FROM users WHERE id = ?`).get([webUser.id]) as any;
+
+  return {
+    id: linkedUser.id,
+    nickname: linkedUser.nickname,
+    avatar_url: linkedUser.avatar_url,
+    username: linkedUser.username,
+    total_score: linkedUser.total_score,
+  };
+};
+
+/**
+ * 关联账号（新流程）：不创建默认微信用户。
+ * - 用 openid 标识当前微信用户
+ * - 校验网页端 username/password
+ * - 将网页端账号绑定到 openid
+ * - 如数据库里已存在同 openid 的“旧微信用户”（历史遗留），会迁移其数据到网页端账号并删除旧记录
+ */
+export const linkWebAccountToOpenid = async (openid: string, username: string, password: string) => {
+  if (!openid) throw new Error('缺少 openid');
+  if (!username || !password) throw new Error('请输入用户名和密码');
+
+  // 1) 查找网页端账号
+  const webUser = await db.prepare(`SELECT * FROM users WHERE username = ?`).get([username]) as any;
+  if (!webUser) throw new Error('用户名不存在');
+  if (!webUser.password_hash) throw new Error('该账号未设置密码，无法关联');
+
+  const isValidPassword = await bcrypt.compare(password, webUser.password_hash);
+  if (!isValidPassword) throw new Error('密码错误');
+
+  // 2) openid 是否已绑定其他账号？
+  const existingWxUser = await db.prepare(`SELECT * FROM users WHERE openid = ?`).get([openid]) as any;
+  if (existingWxUser && existingWxUser.id !== webUser.id) {
+    // 历史遗留：之前自动创建过微信用户，迁移数据并删除旧微信用户
+    await db.prepare(`UPDATE selections SET user_id = ? WHERE user_id = ?`).run([webUser.id, existingWxUser.id]);
+    await db.prepare(`UPDATE frozen_players SET user_id = ? WHERE user_id = ?`).run([webUser.id, existingWxUser.id]);
+    await db.prepare(`DELETE FROM users WHERE id = ?`).run([existingWxUser.id]);
+  }
+
+  // 3) 网页端账号是否已被其他微信 openid 绑定？
+  if (webUser.openid && webUser.openid !== openid) {
+    const other = await db.prepare(`SELECT id FROM users WHERE openid = ? AND id != ?`).get([webUser.openid, webUser.id]) as any;
+    if (other) {
+      throw new Error('该账号已被其他微信用户关联');
+    }
+  }
+
+  // 4) 绑定 openid 到网页端账号
+  await db.prepare(`UPDATE users SET openid = ? WHERE id = ?`).run([openid, webUser.id]);
+  const linkedUser = await db.prepare(`SELECT * FROM users WHERE id = ?`).get([webUser.id]) as any;
+
+  return {
+    id: linkedUser.id,
+    nickname: linkedUser.nickname,
+    avatar_url: linkedUser.avatar_url,
+    username: linkedUser.username,
+    total_score: linkedUser.total_score,
   };
 };
 

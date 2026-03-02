@@ -24,9 +24,14 @@ Page({
   async loadData() {
     this.setData({ loading: true });
     try {
-      // 获取所有用户排行榜
-      const leaderboard = await request({ url: '/users/all', data: { limit: 100 } });
-      this.setData({ leaderboard: leaderboard || [] });
+      const list = await request({ url: '/users/all', data: { limit: 100 } });
+      // 格式化分数显示
+      const leaderboard = (list || []).map((item, index) => ({
+        ...item,
+        rank: index + 1,
+        displayScore: this.formatScore(item.totalScore)
+      }));
+      this.setData({ leaderboard });
     } catch (error) {
       console.error('加载排行榜失败:', error);
       wx.showToast({ title: '加载失败', icon: 'none' });
@@ -34,17 +39,17 @@ Page({
       this.setData({ loading: false });
     }
   },
+
+  formatScore(score) {
+    const num = Number(score);
+    if (Number.isFinite(num)) {
+      return num.toFixed(2);
+    }
+    return '0.00';
+  },
+
   async onPullDownRefresh() {
     await this.loadData();
     wx.stopPullDownRefresh();
   },
 });
-
-
-
-
-
-
-
-
-

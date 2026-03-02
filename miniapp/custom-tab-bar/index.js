@@ -121,7 +121,15 @@ Component({
       if (this.data.dateOptions.length > 0) return;
       this.setData({ loadingDates: true });
       try {
-        const dates = await request({ url: '/games/upcoming-dates' });
+        // 优先从全局数据中获取赛程页面已加载的日期
+        const app = getApp();
+        let dates = app && app.globalData && app.globalData.loadedGameDates;
+
+        // 如果没有已加载的日期，则从后端获取
+        if (!dates || dates.length === 0) {
+          dates = await request({ url: '/games/upcoming-dates' });
+        }
+
         const options = (dates || []).map((date) => {
           const d = dayjs(date);
           const today = dayjs().format('YYYY-MM-DD');
@@ -133,7 +141,6 @@ Component({
         const firstOption = options[0] || { date: fallbackDate, label: dayjs(fallbackDate).format('MM-DD') };
         const selectedDate = options.length ? firstOption.date : fallbackDate;
         const selectedDateLabel = options.length ? firstOption.label : dayjs(selectedDate).format('MM-DD');
-        const app = getApp();
         if (app && app.globalData) {
           app.globalData.selectedGameDate = selectedDate;
         }

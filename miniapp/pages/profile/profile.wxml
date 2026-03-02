@@ -2,38 +2,73 @@
   <!-- User Info Card -->
   <view class="user-card">
     <view class="user-header">
-      <view class="avatar-wrapper" bindtap="chooseAvatar">
-        <image class="avatar" src="{{user.avatarUrl || 'https://img.yzcdn.cn/vant/cat.jpeg'}}" mode="aspectFill"></image>
-        <view class="avatar-edit-hint">点击修改</view>
-      </view>
+      <!-- 已关联账号：可修改头像；未关联：灰色默认头像 -->
+      <block wx:if="{{user}}">
+        <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+          <view class="avatar-wrapper avatar-small">
+            <image class="avatar" src="{{user.avatarUrl}}" mode="aspectFill"></image>
+            <view class="avatar-edit-hint">修改</view>
+          </view>
+        </button>
+      </block>
+      <block wx:else>
+        <view class="avatar-wrapper avatar-small">
+          <view class="avatar avatar-placeholder"></view>
+        </view>
+      </block>
       <view class="user-meta">
-        <view class="username-row" bindtap="editNickname">
-          <text class="username">{{user.nickname || '球迷'}}</text>
-          <text class="edit-icon">✏️</text>
+        <view class="username-row">
+          <block wx:if="{{user}}">
+            <input
+              class="nickname-input"
+              type="nickname"
+              placeholder="点击设置昵称"
+              value="{{user.nickname || ''}}"
+              bindblur="onNicknameInput"
+              bindconfirm="onNicknameInput"
+            />
+            <text class="edit-icon">✏️</text>
+          </block>
+          <block wx:else>
+            <text class="nickname-placeholder">待登陆</text>
+          </block>
         </view>
         <view class="user-group">
           <text class="group-icon">🏆</text>
-          <text>{{user.groupName || '默认小组'}}</text>
+          <text>{{user ? (user.groupName || '默认小组') : '未登录'}}</text>
         </view>
       </view>
     </view>
-    
+
     <view class="stats-row">
       <view class="stat-item">
         <view class="stat-label">当前积分</view>
-        <view class="stat-value">{{user.totalScore || 0}}</view>
+        <view class="stat-value">{{user ? (user.totalScore || 0) : 0}}</view>
       </view>
       <view class="stat-divider"></view>
       <view class="stat-item">
         <view class="stat-label">排名</view>
-        <view class="stat-value">{{userRank || '--'}}</view>
+        <view class="stat-value">{{user ? (userRank || '--') : '--'}}</view>
       </view>
     </view>
   </view>
 
   <!-- Menu List -->
   <view class="menu-list">
-    <view class="menu-item" data-url="/pages/history/history" bindtap="navigate">
+    <!-- 关联账号（未关联/未登录时显示） -->
+    <view class="menu-item" wx:if="{{!user || !user.username}}" bindtap="showLinkAccountModal">
+      <view class="menu-icon" style="background: #ECFDF5; color: #10B981;">🔗</view>
+      <view class="menu-text">关联网页端账号</view>
+      <view class="menu-arrow">></view>
+    </view>
+
+    <!-- 已关联账号显示 -->
+    <view class="menu-item menu-item-readonly" wx:if="{{user && user.username}}">
+      <view class="menu-icon" style="background: #ECFDF5; color: #10B981;">✅</view>
+      <view class="menu-text">已关联: {{user.username}}</view>
+    </view>
+
+    <view class="menu-item" data-url="/pages/history/history" bindtap="navigate" wx:if="{{user}}">
       <view class="menu-icon" style="background: #EFF6FF; color: #3B82F6;">📅</view>
       <view class="menu-text">历史战绩</view>
       <view class="menu-arrow">></view>
@@ -43,12 +78,18 @@
       <view class="menu-text">排行榜</view>
       <view class="menu-arrow">></view>
     </view>
+    <!-- 每日得分看板 - 跳转到单独页面 -->
+    <view class="menu-item" data-url="/pages/scoreboard/scoreboard" bindtap="navigate">
+      <view class="menu-icon" style="background: #E0E7FF; color: #4F46E5;">🗓️</view>
+      <view class="menu-text">每日得分看板</view>
+      <view class="menu-arrow">></view>
+    </view>
   </view>
 
   <!-- Frozen Players Section -->
   <view class="section-title">我的冷冻名单</view>
   <view class="frozen-list">
-    <block wx:if="{{frozen.length}}">
+    <block wx:if="{{user && frozen.length}}">
       <block wx:for="{{frozen}}" wx:key="id">
         <view class="frozen-card">
           <view class="frozen-info">
@@ -62,9 +103,37 @@
         </view>
       </block>
     </block>
-    <view class="empty-frozen" wx:if="{{!frozen.length}}">
+    <view class="empty-frozen" wx:if="{{!user}}">
+      <view class="empty-text">关联账号后可查看</view>
+    </view>
+    <view class="empty-frozen" wx:elif="{{!frozen.length}}">
       <view class="empty-text">暂无冷冻球员</view>
     </view>
   </view>
 
+</view>
+
+<!-- 关联账号弹窗 -->
+<view class="modal-mask" wx:if="{{showLinkModal}}" bindtap="hideLinkAccountModal">
+  <view class="modal-container" catchtap="">
+    <view class="modal-header">
+      <text class="modal-title">关联网页端账号</text>
+      <text class="modal-close" bindtap="hideLinkAccountModal">×</text>
+    </view>
+    <view class="modal-body">
+      <view class="modal-tip">请输入您在网页端注册的用户名和密码，关联后可同步您的积分数据</view>
+      <view class="form-item">
+        <text class="form-label">用户名</text>
+        <input class="form-input" placeholder="请输入用户名" value="{{linkUsername}}" bindinput="onLinkUsernameInput" />
+      </view>
+      <view class="form-item">
+        <text class="form-label">密码</text>
+        <input class="form-input" placeholder="请输入密码" password value="{{linkPassword}}" bindinput="onLinkPasswordInput" />
+      </view>
+    </view>
+    <view class="modal-footer">
+      <button class="modal-btn modal-btn-cancel" bindtap="hideLinkAccountModal">取消</button>
+      <button class="modal-btn modal-btn-confirm" bindtap="confirmLinkAccount" loading="{{linking}}">确认关联</button>
+    </view>
+  </view>
 </view>

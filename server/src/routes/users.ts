@@ -3,7 +3,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { paths } from '../config';
-import { upsertUser, getUserById, getUserFrozenPlayers, updateUserProfile, getLeaderboard, getAllUsers, registerUser, authLogin, syncUserFromCloudFunction } from '../services/userService';
+import { getUserById, getUserFrozenPlayers, updateUserProfile, getLeaderboard, getAllUsers, registerUser, authLogin, getUserByOpenid, linkWebAccountToOpenid, syncUserFromCloudFunction, linkAccount } from '../services/userService';
+import { code2Session } from '../services/wechatService';
 
 const router = Router();
 const avatarDir = path.resolve(paths.data, 'uploads', 'avatars');
@@ -53,22 +54,105 @@ router.post('/auth-login', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
-  const { code, openid, nickname, avatarUrl } = req.body ?? {};
-  const identifier = openid ?? code;
-  if (!identifier) {
-    return res.status(400).json({ message: '缺少openid或code' });
+  try {
+    const { code, openid: directOpenid } = req.body ?? {};
+
+    // 如果直接传入了 openid（用于测试或向后兼容），直接使用
+    // 否则通过 code 调用微信 API 获取真正的 openid
+    let openid = directOpenid;
+
+    if (!openid && code) {
+      try {
+        const session = await code2Session(code);
+        openid = session.openid;
+      } catch (error: any) {
+        console.error('微信登录失败:', error.message);
+        return res.status(400).json({ message: error.message || '微信登录失败' });
+      }
+    }
+
+    if (!openid) {
+      return res.status(400).json({ message: '缺少openid或code' });
+    }
+
+    const user = await getUserByOpenid(openid) as any;
+    if (!user) {
+      // 不自动创建默认用户，返回未关联状态
+      return res.json({ linked: false });
+    }
+    return res.json({
+      linked: true,
+      id: user.id,
+      nickname: user.nickname,
+      avatarUrl: user.avatar_url,
+      totalScore: user.total_score,
+      username: user.username,
+    });
+  } catch (error: any) {
+    console.error('登录失败:', error);
+    res.status(500).json({ message: error.message || '登录失败' });
   }
-  const user = await upsertUser({
-    openid: identifier,
-    nickname,
-    avatarUrl,
-  }) as any;
-  res.json({
-    id: user.id,
-    nickname: user.nickname,
-    avatarUrl: user.avatar_url,
-    totalScore: user.total_score,
-  });
+});
+
+/**
+ * 关联账号（新流程）：不创建默认微信用户。
+ * 通过 code 获取 openid，将网页端账号绑定到该 openid。
+ */
+router.post('/link-account', async (req, res) => {
+  try {
+    const { code, openid: directOpenid, username, password } = req.body ?? {};
+    if (!username || !password) {
+      return res.status(400).json({ message: '请输入用户名和密码' });
+    }
+
+    let openid = directOpenid;
+    if (!openid && code) {
+      const session = await code2Session(code);
+      openid = session.openid;
+    }
+    if (!openid) {
+      return res.status(400).json({ message: '缺少openid或code' });
+    }
+
+    const linkedUser = await linkWebAccountToOpenid(openid, username, password);
+    return res.json({
+      id: linkedUser.id,
+      nickname: linkedUser.nickname,
+      avatarUrl: linkedUser.avatar_url,
+      username: linkedUser.username,
+      totalScore: linkedUser.total_score,
+    });
+  } catch (error: any) {
+    console.error('关联账号失败:', error);
+    res.status(400).json({ message: error.message || '关联账号失败' });
+  }
+});
+
+/**
+ * 关联账号：将小程序账号与网页端账号关联
+ */
+router.post('/:userId/link-account', async (req, res) => {
+  try {
+    const userId = Number(req.params.userId);
+    const { username, password } = req.body ?? {};
+
+    if (!username || !password) {
+      return res.status(400).json({ message: '请输入用户名和密码' });
+    }
+
+    const linkedUser = await linkAccount(userId, username, password);
+
+    res.json({
+      id: linkedUser.id,
+      nickname: linkedUser.nickname,
+      avatarUrl: linkedUser.avatar_url,
+      username: linkedUser.username,
+      totalScore: linkedUser.total_score,
+    });
+  } catch (error: any) {
+    console.error('关联账号失败:', error);
+    res.status(400).json({ message: error.message || '关联账号失败' });
+  }
 });
 
 router.get('/leaderboard', async (req, res) => {
@@ -101,6 +185,7 @@ router.get('/:userId', async (req, res) => {
     nickname: user.nickname,
     avatarUrl: user.avatar_url,
     totalScore: user.total_score,
+    username: user.username,
     createdAt: user.created_at,
   });
 });
@@ -109,7 +194,7 @@ router.put('/:userId/profile', async (req, res) => {
   try {
     const userId = Number(req.params.userId);
     const { nickname, avatarUrl } = req.body ?? {};
-    
+
     const updatedUser = await updateUserProfile(userId, nickname, avatarUrl);
     res.json({
       id: updatedUser.id,
