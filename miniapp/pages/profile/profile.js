@@ -71,6 +71,11 @@ Page({
     wx.navigateTo({ url: e.currentTarget.dataset.url });
   },
 
+  onTapLoginArea() {
+    if (this.data.user) return;
+    this.showLinkAccountModal();
+  },
+
   async onChooseAvatar(e) {
     if (!this.data.user) {
       return wx.showToast({ title: '请先关联网页端账号', icon: 'none' });

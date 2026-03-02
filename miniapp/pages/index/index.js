@@ -87,9 +87,9 @@ Page({
   async initTimeline(focusDate) {
     wx.showLoading({ title: '加载中...' });
     try {
-      // 默认加载4天：前1天 + 当天 + 后2天
+      // 默认加载5天：前1天 + 当天 + 后3天（与「我的」页中间选择栏保持一致）
       const start = dayjs(focusDate).subtract(1, 'day').format('YYYY-MM-DD');
-      const end = dayjs(focusDate).add(2, 'day').format('YYYY-MM-DD');
+      const end = dayjs(focusDate).add(3, 'day').format('YYYY-MM-DD');
 
       await this.fetchGameRange(start, end, 'initial');
 

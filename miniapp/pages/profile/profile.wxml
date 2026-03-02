@@ -1,41 +1,45 @@
 <view class="page-container">
   <!-- User Info Card -->
   <view class="user-card">
-    <view class="user-header">
+    <view class="user-header" wx:if="{{user}}">
       <!-- 已关联账号：可修改头像；未关联：灰色默认头像 -->
-      <block wx:if="{{user}}">
-        <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
-          <view class="avatar-wrapper avatar-small">
-            <image class="avatar" src="{{user.avatarUrl}}" mode="aspectFill"></image>
-            <view class="avatar-edit-hint">修改</view>
-          </view>
-        </button>
-      </block>
-      <block wx:else>
+      <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
         <view class="avatar-wrapper avatar-small">
-          <view class="avatar avatar-placeholder"></view>
+          <image class="avatar" src="{{user.avatarUrl}}" mode="aspectFill"></image>
+          <view class="avatar-edit-hint">修改</view>
         </view>
-      </block>
+      </button>
       <view class="user-meta">
         <view class="username-row">
-          <block wx:if="{{user}}">
-            <input
-              class="nickname-input"
-              type="nickname"
-              placeholder="点击设置昵称"
-              value="{{user.nickname || ''}}"
-              bindblur="onNicknameInput"
-              bindconfirm="onNicknameInput"
-            />
-            <text class="edit-icon">✏️</text>
-          </block>
-          <block wx:else>
-            <text class="nickname-placeholder">待登陆</text>
-          </block>
+          <input
+            class="nickname-input"
+            type="nickname"
+            placeholder="点击设置昵称"
+            value="{{user.nickname || ''}}"
+            bindblur="onNicknameInput"
+            bindconfirm="onNicknameInput"
+          />
+          <text class="edit-icon">✏️</text>
         </view>
         <view class="user-group">
           <text class="group-icon">🏆</text>
-          <text>{{user ? (user.groupName || '默认小组') : '未登录'}}</text>
+          <text>{{user.groupName || '默认小组'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 未关联：点击头像/昵称区域弹出绑定弹窗 -->
+    <view class="user-header" wx:else bindtap="onTapLoginArea">
+      <view class="avatar-wrapper avatar-small">
+        <view class="avatar avatar-placeholder"></view>
+      </view>
+      <view class="user-meta">
+        <view class="username-row">
+          <text class="nickname-placeholder">待登陆</text>
+        </view>
+        <view class="user-group">
+          <text class="group-icon">🏆</text>
+          <text>未登录</text>
         </view>
       </view>
     </view>
@@ -55,13 +59,6 @@
 
   <!-- Menu List -->
   <view class="menu-list">
-    <!-- 关联账号（未关联/未登录时显示） -->
-    <view class="menu-item" wx:if="{{!user || !user.username}}" bindtap="showLinkAccountModal">
-      <view class="menu-icon" style="background: #ECFDF5; color: #10B981;">🔗</view>
-      <view class="menu-text">关联网页端账号</view>
-      <view class="menu-arrow">></view>
-    </view>
-
     <!-- 已关联账号显示 -->
     <view class="menu-item menu-item-readonly" wx:if="{{user && user.username}}">
       <view class="menu-icon" style="background: #ECFDF5; color: #10B981;">✅</view>

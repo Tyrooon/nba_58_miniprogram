@@ -748,7 +748,9 @@ export const getPlayersForDate = async (date: string) => {
  */
 export const getUpcomingGameDates = async (limit: number = 7): Promise<string[]> => {
   const today = getTodayBeijing();
-  const startDate = addDays(today, -3);
+  // Align miniapp date selector range to "today-1 ~ today+3" window.
+  // We still rely on DB game dates; this just sets the earliest candidate.
+  const startDate = addDays(today, -1);
 
   const stmt = db.prepare(`
     SELECT DISTINCT game_date 

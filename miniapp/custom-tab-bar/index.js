@@ -45,7 +45,8 @@ Component({
       this.setData({ selected: data.index });
     },
     async showGameModes() {
-      await this.ensureDateOptions();
+      // 每次打开都强制刷新日期选项，避免不同页面使用到旧缓存导致范围不一致
+      await this.ensureDateOptions(true);
       await this.loadCurrentSelections();
       this.setData({ showModes: true });
     },
@@ -116,31 +117,45 @@ Component({
         currentPage.fetchCurrentSelections(this.data.selectedDate);
       }
     },
-    async ensureDateOptions() {
+    async ensureDateOptions(force = false) {
       if (this.data.loadingDates) return;
-      if (this.data.dateOptions.length > 0) return;
+      if (!force && this.data.dateOptions.length > 0) return;
       this.setData({ loadingDates: true });
       try {
         // 优先从全局数据中获取赛程页面已加载的日期
         const app = getApp();
         let dates = app && app.globalData && app.globalData.loadedGameDates;
 
-        // 如果没有已加载的日期，则从后端获取
+        const today = dayjs().format('YYYY-MM-DD');
+        const windowStart = dayjs(today).subtract(1, 'day').format('YYYY-MM-DD');
+        const windowEnd = dayjs(today).add(3, 'day').format('YYYY-MM-DD');
+
+        // 只保留窗口内的日期（避免赛程页滚动加载了很多天，导致弹窗日期范围不一致）
+        if (Array.isArray(dates) && dates.length > 0) {
+          dates = dates.filter((d) => d >= windowStart && d <= windowEnd);
+        }
+
+        // 如果没有可用日期，则从后端获取（limit=5 对应窗口大小）
         if (!dates || dates.length === 0) {
-          dates = await request({ url: '/games/upcoming-dates' });
+          dates = await request({ url: '/games/upcoming-dates', data: { limit: 5 } });
         }
 
         const options = (dates || []).map((date) => {
           const d = dayjs(date);
-          const today = dayjs().format('YYYY-MM-DD');
           const weekdayLabels = ['周日','周一','周二','周三','周四','周五','周六'];
           const label = date === today ? `今日 ${d.format('MM-DD')}` : `${d.format('MM-DD')} ${weekdayLabels[d.day()]}`;
           return { date, label };
         });
-        const fallbackDate = this.data.selectedDate || dayjs().format('YYYY-MM-DD');
-        const firstOption = options[0] || { date: fallbackDate, label: dayjs(fallbackDate).format('MM-DD') };
-        const selectedDate = options.length ? firstOption.date : fallbackDate;
-        const selectedDateLabel = options.length ? firstOption.label : dayjs(selectedDate).format('MM-DD');
+
+        const fallbackDate =
+          (app && app.globalData && app.globalData.selectedGameDate) ||
+          this.data.selectedDate ||
+          today;
+        const fallbackInOptions = options.find((o) => o.date === fallbackDate);
+        const todayInOptions = options.find((o) => o.date === today);
+        const pick = fallbackInOptions || todayInOptions || options[0] || { date: fallbackDate, label: dayjs(fallbackDate).format('MM-DD') };
+        const selectedDate = options.length ? pick.date : fallbackDate;
+        const selectedDateLabel = options.length ? pick.label : dayjs(selectedDate).format('MM-DD');
         if (app && app.globalData) {
           app.globalData.selectedGameDate = selectedDate;
         }
