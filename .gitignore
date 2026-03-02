@@ -12,7 +12,8 @@ package-lock.json
 # server/data/
 
 # Environment variables
-.env
+.ak
+!.env
 .env.local
 .env.*.local
 
