@@ -47,7 +47,7 @@
     <view class="stats-row">
       <view class="stat-item">
         <view class="stat-label">当前积分</view>
-        <view class="stat-value">{{user ? (user.totalScore || 0) : 0}}</view>
+        <view class="stat-value">{{displayScore}}</view>
       </view>
       <view class="stat-divider"></view>
       <view class="stat-item">
@@ -111,26 +111,26 @@
 </view>
 
 <!-- 关联账号弹窗 -->
-<view class="modal-mask" wx:if="{{showLinkModal}}" bindtap="hideLinkAccountModal">
-  <view class="modal-container" catchtap="">
+<view class="modal-mask" wx:if="{{showLinkModal}}" catchtap="hideLinkAccountModal">
+  <view class="modal-container" catchtap="preventBubble">
     <view class="modal-header">
       <text class="modal-title">关联网页端账号</text>
-      <text class="modal-close" bindtap="hideLinkAccountModal">×</text>
+      <text class="modal-close" catchtap="hideLinkAccountModal">×</text>
     </view>
-    <view class="modal-body">
+    <view class="modal-body" catchtap="preventBubble">
       <view class="modal-tip">请输入您在网页端注册的用户名和密码，关联后可同步您的积分数据</view>
       <view class="form-item">
         <text class="form-label">用户名</text>
-        <input class="form-input" placeholder="请输入用户名" value="{{linkUsername}}" bindinput="onLinkUsernameInput" />
+        <input class="form-input" placeholder="请输入用户名" value="{{linkUsername}}" bindinput="onLinkUsernameInput" catchtap="preventBubble" />
       </view>
       <view class="form-item">
         <text class="form-label">密码</text>
-        <input class="form-input" placeholder="请输入密码" password value="{{linkPassword}}" bindinput="onLinkPasswordInput" />
+        <input class="form-input" placeholder="请输入密码" password value="{{linkPassword}}" bindinput="onLinkPasswordInput" catchtap="preventBubble" />
       </view>
     </view>
-    <view class="modal-footer">
-      <button class="modal-btn modal-btn-cancel" bindtap="hideLinkAccountModal">取消</button>
-      <button class="modal-btn modal-btn-confirm" bindtap="confirmLinkAccount" loading="{{linking}}">确认关联</button>
+    <view class="modal-footer" catchtap="preventBubble">
+      <button class="modal-btn modal-btn-cancel" catchtap="hideLinkAccountModal">取消</button>
+      <button class="modal-btn modal-btn-confirm" catchtap="confirmLinkAccount" loading="{{linking}}">确认关联</button>
     </view>
   </view>
 </view>

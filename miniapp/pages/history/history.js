@@ -20,6 +20,15 @@ Page({
     this.setData({ user });
     this.loadHistory();
   },
+
+  // 分享功能
+  onShareAppMessage() {
+    return {
+      title: 'NBA 58 - 每日球员选择游戏',
+      path: '/pages/index/index'
+    };
+  },
+
   goBack() {
     wx.navigateBack();
   },

@@ -19,6 +19,14 @@ Page({
     this.loadData();
   },
 
+  // 分享功能
+  onShareAppMessage() {
+    return {
+      title: 'NBA 58 - 经理模式',
+      path: '/pages/index/index'
+    };
+  },
+
   async loadData() {
     wx.showLoading({ title: '加载中...' });
     try {

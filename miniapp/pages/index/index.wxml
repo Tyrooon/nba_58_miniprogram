@@ -46,13 +46,23 @@
     scroll-into-view="{{toView}}"
     bindscrolltoupper="handleScrollToUpper"
     bindscrolltolower="handleScrollToLower"
-    upper-threshold="100"
-    lower-threshold="100"
+    bindscroll="handleScroll"
+    bindtouchstart="handleTouchStart"
+    bindtouchmove="handleTouchMove"
+    bindtouchend="handleTouchEnd"
+    upper-threshold="50"
+    lower-threshold="50"
+    enhanced
+    :show-scrollbar="false"
   >
-    <view class="timeline-content">
-      <!-- Loading Indicator Top -->
-      <view class="loading-more" wx:if="{{loadingMorePast}}">
-        <view class="spinner"></view>
+    <view class="timeline-content" style="transform: translateY({{pullDownDistance}}rpx);">
+      <!-- 下拉刷新提示区域 -->
+      <view class="pull-down-indicator {{pullDownStatus}}" style="height: {{pullDownDistance}}rpx;">
+        <view class="pull-icon {{pullDownStatus === 'loading' ? 'rotate' : ''}}">
+          <text wx:if="{{pullDownStatus === 'loading'}}">⟳</text>
+          <text wx:else>↓</text>
+        </view>
+        <text class="pull-text">{{pullDownText}}</text>
       </view>
 
       <!-- 到底提示 -->
@@ -69,7 +79,7 @@
             <text wx:if="{{dayGroup.isToday}}" class="today-tag">今日</text>
           </view>
 
-          <block wx:if="{{dayGroup.games.length}}">
+          <block wx:if="{{dayGroup.games && dayGroup.games.length}}">
             <block wx:for="{{dayGroup.games}}" wx:key="external_id" wx:for-item="game">
               <view class="game-card {{activeGameId === game.external_id ? 'expanded' : ''}}">
                 <view class="game-summary" bindtap="toggleGame" data-id="{{game.external_id}}" data-date="{{dayGroup.date}}" data-has-data="{{game.hasPlayers}}">
@@ -208,9 +218,13 @@
         </view>
       </block>
 
-      <!-- Loading Indicator Bottom -->
-      <view class="loading-more" wx:if="{{loadingMoreFuture}}">
-        <view class="spinner"></view>
+      <!-- 上拉加载提示区域 -->
+      <view class="pull-up-indicator {{pullUpStatus}}" style="height: {{pullUpDistance}}rpx;">
+        <view class="pull-icon {{pullUpStatus === 'loading' ? 'rotate' : ''}}">
+          <text wx:if="{{pullUpStatus === 'loading'}}">⟳</text>
+          <text wx:else>↑</text>
+        </view>
+        <text class="pull-text">{{pullUpText}}</text>
       </view>
 
       <!-- 到底提示 -->

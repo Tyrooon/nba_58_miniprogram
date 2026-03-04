@@ -41,15 +41,26 @@ const decoratePlayers = (players = []) =>
   }));
 
 const formatGame = (game) => {
-  const visitorPlayersSorted = decoratePlayers(game.visitor_players);
-  const homePlayersSorted = decoratePlayers(game.home_players);
-  return {
-    ...game,
-    tipoff_time_short: dayjs(game.tipoff).format('HH:mm'),
-    visitorPlayersSorted,
-    homePlayersSorted,
-    hasPlayers: visitorPlayersSorted.length > 0 || homePlayersSorted.length > 0,
-  };
+  try {
+    const visitorPlayersSorted = decoratePlayers(game.visitor_players || []);
+    const homePlayersSorted = decoratePlayers(game.home_players || []);
+    return {
+      ...game,
+      tipoff_time_short: game.tipoff ? dayjs(game.tipoff).format('HH:mm') : '--:--',
+      visitorPlayersSorted,
+      homePlayersSorted,
+      hasPlayers: visitorPlayersSorted.length > 0 || homePlayersSorted.length > 0,
+    };
+  } catch (e) {
+    console.error('formatGame error:', e, game);
+    return {
+      ...game,
+      tipoff_time_short: '--:--',
+      visitorPlayersSorted: [],
+      homePlayersSorted: [],
+      hasPlayers: false,
+    };
+  }
 };
 
 Page({
@@ -77,21 +88,54 @@ Page({
     selectedSelectionDate: dayjs().format('YYYY-MM-DD'),
     selectedSelectionDateText: '',
     modeCardCollapsed: false,
+    // 下拉刷新状态
+    pullDownDistance: 0,
+    pullDownStatus: 'idle', // idle, pulling, ready, loading
+    pullDownText: '下拉加载更早比赛',
+    // 上拉加载状态
+    pullUpDistance: 0,
+    pullUpStatus: 'idle',
+    pullUpText: '上拉加载更多比赛',
   },
 
   onLoad() {
     const today = dayjs().format('YYYY-MM-DD');
     this.initTimeline(today);
+    // 初始化触摸相关变量
+    this._startY = 0;
+    this._scrollTop = 0;
+    this._scrollHeight = 0;
+    this._clientHeight = 0;
+  },
+
+  // 分享功能
+  onShareAppMessage() {
+    return {
+      title: 'NBA 58 - 每日球员选择游戏',
+      path: '/pages/index/index'
+    };
+  },
+
+  // 分享到朋友圈
+  onShareTimeline() {
+    return {
+      title: 'NBA 58 - 每日球员选择游戏',
+      query: ''
+    };
   },
 
   async initTimeline(focusDate) {
+    console.log('[index] initTimeline start, focusDate:', focusDate);
     wx.showLoading({ title: '加载中...' });
     try {
       // 默认加载5天：前1天 + 当天 + 后3天（与「我的」页中间选择栏保持一致）
       const start = dayjs(focusDate).subtract(1, 'day').format('YYYY-MM-DD');
       const end = dayjs(focusDate).add(3, 'day').format('YYYY-MM-DD');
+      console.log('[index] fetchGameRange:', start, '-', end);
 
       await this.fetchGameRange(start, end, 'initial');
+
+      console.log('[index] fetchGameRange done, gameList length:', this.data.gameList.length);
 
       // Scroll to "today" after rendering
       setTimeout(() => {
@@ -99,8 +143,8 @@ Page({
       }, 500);
 
     } catch (error) {
-      console.error(error);
-      wx.showToast({ title: '加载失败', icon: 'none' });
+      console.error('[index] initTimeline error:', error);
+      wx.showToast({ title: error.message || '加载失败', icon: 'none' });
     } finally {
       wx.hideLoading();
       this.setData({ loading: false });
@@ -109,57 +153,86 @@ Page({
 
   async fetchGameRange(start, end, type = 'initial') {
     // type: 'initial' | 'prepend' | 'append'
-    const res = await request({
-      url: '/games/range',
-      data: { start, end }
-    });
+    try {
+      const res = await request({
+        url: '/games/range',
+        data: { start, end }
+      });
 
-    if (!res) return;
-
-    // Format dates
-    const newGroups = res.map(g => {
-      const d = dayjs(g.date);
-      return {
-        ...g,
-        dateStr: d.format('MM月DD日'),
-        weekStr: ['周日','周一','周二','周三','周四','周五','周六'][d.day()],
-        isToday: g.date === dayjs().format('YYYY-MM-DD'),
-        games: g.games.map(formatGame)
-      };
-    });
-
-    if (type === 'initial') {
-      this.setData({ gameList: newGroups });
-      // 更新全局数据中的已加载日期列表
-      this.updateGlobalLoadedDates(newGroups);
-    } else if (type === 'prepend') {
-      // 检查是否有新数据
-      if (newGroups.length === 0) {
-        this.setData({
-          loadingMorePast: false,
-          noMorePast: true
-        });
+      if (!res || !Array.isArray(res)) {
+        console.warn('fetchGameRange: invalid response', res);
+        if (type === 'initial') {
+          this.setData({ gameList: [] });
+        }
         return;
       }
-      this.setData({
-        gameList: [...newGroups, ...this.data.gameList],
-        loadingMorePast: false
+
+      // Format dates
+      const newGroups = res.map(g => {
+        try {
+          const d = dayjs(g.date);
+          return {
+            ...g,
+            dateStr: d.format('MM月DD日'),
+            weekStr: ['周日','周一','周二','周三','周四','周五','周六'][d.day()],
+            isToday: g.date === dayjs().format('YYYY-MM-DD'),
+            games: (g.games || []).map(formatGame)
+          };
+        } catch (e) {
+          console.error('format date group error:', e, g);
+          return {
+            ...g,
+            dateStr: g.date || '',
+            weekStr: '',
+            isToday: false,
+            games: []
+          };
+        }
       });
-      this.updateGlobalLoadedDates([...newGroups, ...this.data.gameList]);
-    } else if (type === 'append') {
-      // 检查是否有新数据
-      if (newGroups.length === 0) {
+
+      if (type === 'initial') {
+        this.setData({ gameList: newGroups });
+        // 更新全局数据中的已加载日期列表
+        this.updateGlobalLoadedDates(newGroups);
+      } else if (type === 'prepend') {
+        // 检查是否有新数据
+        if (newGroups.length === 0) {
+          this.setData({
+            loadingMorePast: false,
+            noMorePast: true
+          });
+          return;
+        }
         this.setData({
-          loadingMoreFuture: false,
-          noMoreFuture: true
+          gameList: [...newGroups, ...this.data.gameList],
+          loadingMorePast: false
         });
-        return;
+        this.updateGlobalLoadedDates([...newGroups, ...this.data.gameList]);
+      } else if (type === 'append') {
+        // 检查是否有新数据
+        if (newGroups.length === 0) {
+          this.setData({
+            loadingMoreFuture: false,
+            noMoreFuture: true
+          });
+          return;
+        }
+        this.setData({
+          gameList: [...this.data.gameList, ...newGroups],
+          loadingMoreFuture: false
+        });
+        this.updateGlobalLoadedDates([...this.data.gameList, ...newGroups]);
       }
-      this.setData({
-        gameList: [...this.data.gameList, ...newGroups],
-        loadingMoreFuture: false
-      });
-      this.updateGlobalLoadedDates([...this.data.gameList, ...newGroups]);
+    } catch (error) {
+      console.error('fetchGameRange error:', error);
+      if (type === 'initial') {
+        this.setData({ gameList: [] });
+      } else if (type === 'prepend') {
+        this.setData({ loadingMorePast: false });
+      } else if (type === 'append') {
+        this.setData({ loadingMoreFuture: false });
+      }
+      throw error;
     }
   },
 
@@ -248,12 +321,161 @@ Page({
   },
 
   handleScrollToUpper() {
-    if (this.data.loadingMorePast) return;
-    this.setData({ loadingMorePast: true });
+    // 使用新的下拉刷新逻辑，这里只标记到达顶部
+    this._isAtTop = true;
+  },
+
+  handleScrollToLower() {
+    // 使用新的上拉加载逻辑，这里只标记到达底部
+    this._isAtBottom = true;
+  },
+
+  // 滚动事件
+  handleScroll(e) {
+    this._scrollTop = e.detail.scrollTop;
+    this._scrollHeight = e.detail.scrollHeight;
+    this._clientHeight = e.detail.clientHeight || this._clientHeight;
+
+    // 检测是否到达顶部或底部
+    const isAtTop = this._scrollTop <= 5;
+    const isAtBottom = this._scrollTop + this._clientHeight >= this._scrollHeight - 5;
+
+    this._isAtTop = isAtTop;
+    this._isAtBottom = isAtBottom;
+  },
+
+  // 触摸开始
+  handleTouchStart(e) {
+    if (e.touches.length === 1) {
+      this._startY = e.touches[0].clientY;
+      this._isDragging = false;
+    }
+  },
+
+  // 触摸移动 - 实现阻尼效果
+  handleTouchMove(e) {
+    if (e.touches.length !== 1) return;
+
+    const currentY = e.touches[0].clientY;
+    const deltaY = currentY - this._startY;
+
+    // 下拉刷新（到达顶部且向下拉）
+    if (this._isAtTop && deltaY > 0 && !this.data.loadingMorePast && !this.data.noMorePast) {
+      this._isDragging = true;
+
+      // 阻尼效果：距离越大，阻力越大
+      const resistance = 0.4;
+      const maxDistance = 150;
+      let pullDistance = deltaY * resistance;
+      pullDistance = Math.min(pullDistance, maxDistance);
+
+      // 计算状态
+      const threshold = 80;
+      let status = 'pulling';
+      let text = '下拉加载更早比赛';
+
+      if (pullDistance >= threshold) {
+        status = 'ready';
+        text = '释放加载更早比赛';
+      }
+
+      this.setData({
+        pullDownDistance: pullDistance,
+        pullDownStatus: status,
+        pullDownText: text
+      });
+    }
+
+    // 上拉加载（到达底部且向上拉）
+    if (this._isAtBottom && deltaY < 0 && !this.data.loadingMoreFuture && !this.data.noMoreFuture) {
+      this._isDragging = true;
+
+      // 阻尼效果
+      const resistance = 0.4;
+      const maxDistance = 150;
+      let pullDistance = Math.abs(deltaY) * resistance;
+      pullDistance = Math.min(pullDistance, maxDistance);
+
+      // 计算状态
+      const threshold = 80;
+      let status = 'pulling';
+      let text = '上拉加载更多比赛';
+
+      if (pullDistance >= threshold) {
+        status = 'ready';
+        text = '释放加载更多比赛';
+      }
+
+      this.setData({
+        pullUpDistance: pullDistance,
+        pullUpStatus: status,
+        pullUpText: text
+      });
+    }
+  },
+
+  // 触摸结束
+  handleTouchEnd() {
+    // 下拉刷新触发
+    if (this.data.pullDownStatus === 'ready' && !this.data.loadingMorePast) {
+      this.setData({
+        pullDownStatus: 'loading',
+        pullDownText: '加载中...',
+        pullDownDistance: 60
+      });
+
+      this._loadPastData();
+    } else {
+      // 重置下拉状态
+      this.setData({
+        pullDownDistance: 0,
+        pullDownStatus: 'idle',
+        pullDownText: '下拉加载更早比赛'
+      });
+    }
+
+    // 上拉加载触发
+    if (this.data.pullUpStatus === 'ready' && !this.data.loadingMoreFuture) {
+      this.setData({
+        pullUpStatus: 'loading',
+        pullUpText: '加载中...',
+        pullUpDistance: 60
+      });
+
+      this._loadFutureData();
+    } else {
+      // 重置上拉状态
+      this.setData({
+        pullUpDistance: 0,
+        pullUpStatus: 'idle',
+        pullUpText: '上拉加载更多比赛'
+      });
+    }
+
+    this._isDragging = false;
+  },
+
+  // 加载更早的比赛
+  async _loadPastData() {
+    const now = Date.now();
+    if (this._loadPastCooldown && now - this._loadPastCooldown < 2000) {
+      this.setData({
+        pullDownDistance: 0,
+        pullDownStatus: 'idle',
+        pullDownText: '下拉加载更早比赛'
+      });
+      return;
+    }
+
+    this._loadPastCooldown = now;
 
     const firstDate = this.data.gameList[0]?.date;
     if (!firstDate) {
-      this.setData({ loadingMorePast: false });
+      this.setData({
+        pullDownDistance: 0,
+        pullDownStatus: 'idle',
+        loadingMorePast: false
+      });
       return;
     }
 
@@ -261,16 +483,38 @@ Page({
     const end = dayjs(firstDate).subtract(1, 'day').format('YYYY-MM-DD');
     const start = dayjs(firstDate).subtract(2, 'day').format('YYYY-MM-DD');
 
-    this.fetchGameRange(start, end, 'prepend');
+    try {
+      await this.fetchGameRange(start, end, 'prepend');
+    } finally {
+      this.setData({
+        pullDownDistance: 0,
+        pullDownStatus: 'idle',
+        pullDownText: '下拉加载更早比赛'
+      });
+    }
   },
 
-  handleScrollToLower() {
-    if (this.data.loadingMoreFuture) return;
-    this.setData({ loadingMoreFuture: true });
+  // 加载更多比赛
+  async _loadFutureData() {
+    const now = Date.now();
+    if (this._loadFutureCooldown && now - this._loadFutureCooldown < 2000) {
+      this.setData({
+        pullUpDistance: 0,
+        pullUpStatus: 'idle',
+        pullUpText: '上拉加载更多比赛'
+      });
+      return;
+    }
+
+    this._loadFutureCooldown = now;
 
     const lastDate = this.data.gameList[this.data.gameList.length - 1]?.date;
     if (!lastDate) {
-      this.setData({ loadingMoreFuture: false });
+      this.setData({
+        pullUpDistance: 0,
+        pullUpStatus: 'idle',
+        loadingMoreFuture: false
+      });
       return;
     }
 
@@ -278,7 +522,15 @@ Page({
     const start = dayjs(lastDate).add(1, 'day').format('YYYY-MM-DD');
     const end = dayjs(lastDate).add(2, 'day').format('YYYY-MM-DD');
 
-    this.fetchGameRange(start, end, 'append');
+    try {
+      await this.fetchGameRange(start, end, 'append');
+    } finally {
+      this.setData({
+        pullUpDistance: 0,
+        pullUpStatus: 'idle',
+        pullUpText: '上拉加载更多比赛'
+      });
+    }
   },
 
   toggleGame(e) {

@@ -16,6 +16,14 @@ Page({
     this.loadDailyScoreboard();
   },
 
+  // 分享功能
+  onShareAppMessage() {
+    return {
+      title: 'NBA 58 - 每日得分看板',
+      path: '/pages/index/index'
+    };
+  },
+
   goBack() {
     wx.navigateBack();
   },

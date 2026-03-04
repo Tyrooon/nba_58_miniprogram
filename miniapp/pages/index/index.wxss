@@ -135,8 +135,9 @@
 }
 
 .timeline-scroll {
-  flex: 1;
-  height: 0;
+  width: 100%;
+  height: calc(100vh - 300rpx);
+  box-sizing: border-box;
 }
 
 .timeline-content {
@@ -148,6 +149,64 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  gap: 12rpx;
+  color: #9CA3AF;
+  font-size: 24rpx;
+}
+
+/* 下拉/上拉刷新指示器 */
+.pull-down-indicator,
+.pull-up-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: height 0.2s ease;
+}
+
+.pull-icon {
+  font-size: 36rpx;
+  color: #3B82F6;
+  transition: transform 0.3s ease;
+}
+
+.pull-icon.rotate {
+  animation: spin 0.8s linear infinite;
+}
+
+.pull-text {
+  font-size: 24rpx;
+  color: #6B7280;
+  margin-top: 8rpx;
+}
+
+/* 准备状态 */
+.pull-down-indicator.ready .pull-icon,
+.pull-up-indicator.ready .pull-icon {
+  transform: rotate(180deg);
+  color: #10B981;
+}
+
+.pull-down-indicator.ready .pull-text,
+.pull-up-indicator.ready .pull-text {
+  color: #10B981;
+}
+
+/* 加载状态 */
+.pull-down-indicator.loading .pull-icon,
+.pull-up-indicator.loading .pull-icon {
+  color: #3B82F6;
+}
+
+.pull-down-indicator.loading .pull-text,
+.pull-up-indicator.loading .pull-text {
+  color: #3B82F6;
+}
+
+/* timeline-content 过渡效果 */
+.timeline-content {
+  transition: transform 0.15s ease-out;
 }
 
 .spinner {

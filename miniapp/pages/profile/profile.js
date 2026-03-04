@@ -3,11 +3,18 @@ const { CLOUD_HOSTING_CONFIG } = require('../../config');
 
 const MODE_NAMES = { 1: '常规', 2: '正58', 3: '负58' };
 
+// 格式化分数，保留2位小数
+const formatScore = (score) => {
+  const num = Number(score);
+  return Number.isFinite(num) ? num.toFixed(2) : '0.00';
+};
+
 Page({
   data: {
     user: null,
     frozen: [],
     userRank: '--',
+    displayScore: '0.00',
     // 关联账号相关
     showLinkModal: false,
     linkUsername: '',
@@ -21,7 +28,8 @@ Page({
     const app = getApp();
     Promise.resolve(app.ensureLogin())
       .then((user) => {
-        this.setData({ user: user || null, frozen: [], userRank: '--' });
+        const displayScore = user && user.totalScore != null ? formatScore(user.totalScore) : '0.00';
+        this.setData({ user: user || null, frozen: [], userRank: '--', displayScore });
         if (user) {
           this.loadFrozen();
           this.loadRank();
@@ -30,6 +38,21 @@ Page({
       .catch((err) => {
         console.error('Profile init error:', err);
       });
+  },
+
+  // 分享功能
+  onShareAppMessage() {
+    return {
+      title: 'NBA 58 - 每日球员选择游戏',
+      path: '/pages/index/index'
+    };
+  },
+
+  onShareTimeline() {
+    return {
+      title: 'NBA 58 - 每日球员选择游戏',
+      query: ''
+    };
   },
 
   _initTabBar() {
@@ -75,6 +98,9 @@ Page({
     if (this.data.user) return;
     this.showLinkAccountModal();
   },
+
+  // 阻止事件冒泡（空函数）
+  preventBubble() {},
 
   async onChooseAvatar(e) {
     if (!this.data.user) {
@@ -198,9 +224,11 @@ Page({
         username: result.username,
         totalScore: result.totalScore,
       };
+      const displayScore = formatScore(result.totalScore);
 
       this.setData({
         user: updatedUser,
+        displayScore,
         showLinkModal: false,
         linkUsername: '',
         linkPassword: '',

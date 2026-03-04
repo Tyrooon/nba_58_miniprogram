@@ -21,6 +21,15 @@ Page({
   onShow() {
     this.loadData();
   },
+
+  // 分享功能
+  onShareAppMessage() {
+    return {
+      title: 'NBA 58 - 排行榜',
+      path: '/pages/index/index'
+    };
+  },
+
   async loadData() {
     this.setData({ loading: true });
     try {
