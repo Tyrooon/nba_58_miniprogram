@@ -31,6 +31,12 @@ const Utils = {
     const num = Number(value);
     return Number.isFinite(num) ? num.toFixed(1) : '--';
   },
+
+  // 格式化分数，保留2位小数
+  formatScore(score) {
+    const num = Number(score);
+    return Number.isFinite(num) ? num.toFixed(2) : '0.00';
+  },
   
   sortPlayersByPoints(players) {
     return (players || []).slice().sort((a, b) => {
