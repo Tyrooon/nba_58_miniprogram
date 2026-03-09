@@ -9,6 +9,16 @@ const formatScore = (score) => {
   return Number.isFinite(num) ? num.toFixed(2) : '0.00';
 };
 
+// 处理头像 URL（相对路径转完整路径）
+const getFullAvatarUrl = (avatarUrl) => {
+  if (!avatarUrl) return '';
+  if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
+    return avatarUrl;
+  }
+  // 相对路径，  const baseUrl = CLOUD_HOSTING_CONFIG.publicDomain || API_BASE.replace('/api', '');
+  return `${baseUrl}${avatarUrl}`;
+};
+
 Page({
   data: {
     user: null,
@@ -134,9 +144,16 @@ Page({
         });
       });
 
+      // 拼接完整的头像 URL
+      let fullAvatarUrl = uploadRes.avatarUrl;
+      if (fullAvatarUrl && fullAvatarUrl.startsWith('/')) {
+        const baseUrl = CLOUD_HOSTING_CONFIG.publicDomain || API_BASE.replace('/api', '');
+        fullAvatarUrl = `${baseUrl}${fullAvatarUrl}`;
+      }
+
       const updatedUser = {
         ...this.data.user,
-        avatarUrl: uploadRes.avatarUrl,
+        avatarUrl: fullAvatarUrl,
       };
       this.setData({ user: updatedUser });
 
@@ -220,7 +237,7 @@ Page({
       const updatedUser = {
         id: result.id,
         nickname: result.nickname,
-        avatarUrl: result.avatarUrl,
+        avatarUrl: formatAvatarUrl(result.avatarUrl),
         username: result.username,
         totalScore: result.totalScore,
       };
