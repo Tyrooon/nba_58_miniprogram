@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NBA 58 管理后台</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/admin.css">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+</head>
+
+<body>
+  <div id="app" class="admin-app">
+    <!-- Login Screen -->
+    <div class="admin-login" id="adminLogin">
+      <div class="login-card">
+        <div class="login-logo">⚙️</div>
+        <h1 class="login-title">NBA 58 管理后台</h1>
+        <p class="login-subtitle">请使用管理员账号登录</p>
+
+        <div class="login-form">
+          <div class="form-field">
+            <label>用户名</label>
+            <input type="text" id="adminUsername" placeholder="请输入用户名" autocomplete="username">
+          </div>
+          <div class="form-field">
+            <label>密码</label>
+            <input type="password" id="adminPassword" placeholder="请输入密码" autocomplete="current-password">
+          </div>
+          <button class="login-btn" id="adminLoginBtn">登 录</button>
+        </div>
+
+        <div class="login-error" id="loginError" style="display: none;"></div>
+      </div>
+    </div>
+
+    <!-- Main Admin Panel -->
+    <div class="admin-panel" id="adminPanel" style="display: none;">
+      <!-- Sidebar -->
+      <nav class="admin-sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-logo">🏀</span>
+          <span class="sidebar-title">NBA 58</span>
+        </div>
+        <div class="sidebar-menu">
+          <div class="menu-item active" data-section="users">
+            <span class="menu-icon">👥</span>
+            <span class="menu-text">用户管理</span>
+          </div>
+          <div class="menu-item" data-section="groups">
+            <span class="menu-icon">📁</span>
+            <span class="menu-text">小组管理</span>
+          </div>
+          <div class="menu-item" data-section="draft">
+            <span class="menu-icon">📋</span>
+            <span class="menu-text">选秀顺序</span>
+          </div>
+          <div class="menu-item" data-section="rosters">
+            <span class="menu-icon">👔</span>
+            <span class="menu-text">经理阵容</span>
+          </div>
+          <div class="menu-item" data-section="sync">
+            <span class="menu-icon">🔄</span>
+            <span class="menu-text">数据同步</span>
+          </div>
+        </div>
+        <div class="sidebar-footer">
+          <button class="logout-btn" id="adminLogoutBtn">退出登录</button>
+        </div>
+      </nav>
+
+      <!-- Main Content -->
+      <main class="admin-content">
+        <!-- Header -->
+        <header class="content-header">
+          <h1 id="sectionTitle">用户管理</h1>
+          <div class="header-actions" id="headerActions"></div>
+        </header>
+
+        <!-- Users Section -->
+        <section class="admin-section" id="usersSection">
+          <div class="section-toolbar">
+            <input type="text" class="search-input" id="userSearch" placeholder="搜索用户...">
+          </div>
+          <div class="data-table-wrapper">
+            <table class="data-table" id="usersTable">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>用户名</th>
+                  <th>昵称</th>
+                  <th>小组</th>
+                  <th>积分</th>
+                  <th>管理员</th>
+                  <th>注册时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody">
+                <tr>
+                  <td colspan="8" class="loading-cell">
+                    <div class="spinner"></div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Groups Section -->
+        <section class="admin-section" id="groupsSection" style="display: none;">
+          <div class="section-toolbar">
+            <button class="primary-btn" id="createGroupBtn">+ 新建小组</button>
+          </div>
+          <div class="groups-grid" id="groupsGrid">
+            <div class="loading-container">
+              <div class="spinner"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Draft Order Section -->
+        <section class="admin-section" id="draftSection" style="display: none;">
+          <div class="section-toolbar">
+            <select id="draftGroupSelect" class="select-input">
+              <option value="1">默认小组</option>
+            </select>
+            <select id="draftSeasonSelect" class="select-input">
+              <option value="2025">2025赛季</option>
+            </select>
+            <button class="primary-btn" id="saveDraftOrderBtn">保存顺序</button>
+          </div>
+          <div class="draft-order-list" id="draftOrderList">
+            <div class="loading-container">
+              <div class="spinner"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Rosters Section -->
+        <section class="admin-section" id="rostersSection" style="display: none;">
+          <div class="section-toolbar">
+            <select id="rosterUserSelect" class="select-input">
+              <option value="">选择用户...</option>
+            </select>
+            <button class="primary-btn" id="addPlayerBtn">+ 添加球员</button>
+          </div>
+          <div class="roster-display" id="rosterDisplay">
+            <p class="hint-text">请选择一个用户查看阵容</p>
+          </div>
+        </section>
+
+        <!-- Sync Section -->
+        <section class="admin-section" id="syncSection" style="display: none;">
+          <div class="sync-cards">
+            <div class="sync-card">
+              <div class="sync-icon">📅</div>
+              <h3>同步赛程</h3>
+              <p>从 API 获取最新赛季赛程</p>
+              <button class="primary-btn" id="syncScheduleBtn">同步赛程</button>
+            </div>
+            <div class="sync-card">
+              <div class="sync-icon">📊</div>
+              <h3>同步每日数据</h3>
+              <p>获取指定日期的比赛和球员数据</p>
+              <input type="date" id="syncDateInput" class="date-input">
+              <button class="primary-btn" id="syncDailyBtn">同步数据</button>
+            </div>
+            <div class="sync-card">
+              <div class="sync-icon">🧮</div>
+              <h3>计算得分</h3>
+              <p>计算指定日期的用户得分</p>
+              <input type="date" id="computeDateInput" class="date-input">
+              <button class="primary-btn" id="computeScoresBtn">计算得分</button>
+            </div>
+          </div>
+          <div class="sync-log" id="syncLog">
+            <h4>操作日志</h4>
+            <div class="log-content" id="logContent"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Modal: Create Group -->
+    <div class="modal-overlay" id="groupModal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="groupModalTitle">新建小组</h2>
+          <button class="modal-close" id="closeGroupModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-field">
+            <label>小组名称</label>
+            <input type="text" id="groupNameInput" placeholder="请输入小组名称">
+          </div>
+          <div class="form-field">
+            <label>描述（选填）</label>
+            <textarea id="groupDescInput" placeholder="请输入小组描述"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="secondary-btn" id="cancelGroupBtn">取消</button>
+          <button class="primary-btn" id="confirmGroupBtn">确认</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Add Player -->
+    <div class="modal-overlay" id="playerModal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>添加球员到阵容</h2>
+          <button class="modal-close" id="closePlayerModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-field">
+            <label>球员 ID</label>
+            <input type="text" id="playerIdInput" placeholder="请输入球员 ID">
+          </div>
+          <div class="form-field">
+            <label>球员类型</label>
+            <select id="playerTypeSelect" class="select-input">
+              <option value="regular">常规球员</option>
+              <option value="rookie">新秀球员</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="checkbox-label">
+              <input type="checkbox" id="isStarterCheckbox">
+              <span>设为首发</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="secondary-btn" id="cancelPlayerBtn">取消</button>
+          <button class="primary-btn" id="confirmPlayerBtn">确认添加</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Set User Group -->
+    <div class="modal-overlay" id="userGroupModal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>设置用户小组</h2>
+          <button class="modal-close" id="closeUserGroupModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>用户: <strong id="userGroupUserName"></strong></p>
+          <div class="form-field">
+            <label>选择小组</label>
+            <select id="userGroupSelect" class="select-input">
+              <option value="1">默认小组</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="secondary-btn" id="cancelUserGroupBtn">取消</button>
+          <button class="primary-btn" id="confirmUserGroupBtn">确认</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirm Dialog -->
+    <div class="modal-overlay" id="confirmModal" style="display: none;">
+      <div class="modal-content confirm-dialog">
+        <div class="modal-header">
+          <h2 id="confirmTitle">确认操作</h2>
+        </div>
+        <div class="modal-body">
+          <p id="confirmMessage"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="secondary-btn" id="confirmCancelBtn">取消</button>
+          <button class="danger-btn" id="confirmOkBtn">确认</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+
+</html>

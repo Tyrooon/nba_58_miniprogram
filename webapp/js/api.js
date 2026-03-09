@@ -207,6 +207,84 @@ const API = {
     return this.request(`/manager/applications/${applicationId}`, {
       method: 'DELETE'
     });
+  },
+
+  // Admin APIs
+  async getAdminUsers() {
+    return this.request('/admin/users');
+  },
+
+  async deleteAdminUser(userId) {
+    return this.request(`/admin/users/${userId}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async getAdminGroups() {
+    return this.request('/admin/groups');
+  },
+
+  async createAdminGroup(name, description) {
+    return this.request('/admin/groups', {
+      method: 'POST',
+      data: { name, description }
+    });
+  },
+
+  async updateAdminGroup(groupId, name, description) {
+    return this.request(`/admin/groups/${groupId}`, {
+      method: 'PUT',
+      data: { name, description }
+    });
+  },
+
+  async deleteAdminGroup(groupId) {
+    return this.request(`/admin/groups/${groupId}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async setAdminUserGroup(userId, groupId) {
+    return this.request(`/admin/users/${userId}/group`, {
+      method: 'PUT',
+      data: { groupId }
+    });
+  },
+
+  async getAdminDraftOrder(groupId, season) {
+    return this.request(`/admin/draft-order?groupId=${groupId}&season=${season}`);
+  },
+
+  async setAdminDraftOrder(groupId, season, orderList) {
+    return this.request('/admin/draft-order', {
+      method: 'PUT',
+      data: { groupId, season, orderList }
+    });
+  },
+
+  async getAdminRosters(userId) {
+    return this.request(`/admin/manager/rosters/${userId ? userId : ''}`);
+  },
+
+  async adminAddPlayerToRoster(userId, playerId, playerType, isStarter) {
+    return this.request('/admin/manager/rosters/add', {
+      method: 'POST',
+      data: { userId, playerId, playerType, isStarter }
+    });
+  },
+
+  async adminRemovePlayerFromRoster(userId, playerId) {
+    return this.request('/admin/manager/rosters/remove', {
+      method: 'POST',
+      data: { userId, playerId }
+    });
+  },
+
+  async adminSetStarters(userId, starterIds) {
+    return this.request('/admin/manager/starters/set', {
+      method: 'POST',
+      data: { userId, starterIds }
+    });
   }
 };
 

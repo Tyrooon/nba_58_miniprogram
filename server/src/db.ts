@@ -296,10 +296,33 @@ const bootstrap = async () => {
         UNIQUE(date_key)
       );
 
+      -- Groups table
+      CREATE TABLE IF NOT EXISTS groups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        description TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+
+      -- Draft order table
+      CREATE TABLE IF NOT EXISTS draft_order (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        order_index INTEGER NOT NULL,
+        round INTEGER NOT NULL DEFAULT 1,
+        season INTEGER NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        UNIQUE (group_id, user_id, round, season),
+        FOREIGN KEY(group_id) REFERENCES groups(id),
+        FOREIGN KEY(user_id) REFERENCES users(id)
+      );
+
       -- Indexes
       CREATE INDEX IF NOT EXISTS idx_selections_user ON selections(user_id);
       -- Removed idx_selections_game because game_id might be missing initially
       CREATE INDEX IF NOT EXISTS idx_selections_user_game_date ON selections(user_id, game_date);
+      CREATE INDEX IF NOT EXISTS idx_draft_order_group ON draft_order(group_id, season);
     `);
 
     console.log('Database tables verified/created successfully');
@@ -373,6 +396,20 @@ const bootstrap = async () => {
         ['admin', passwordHash, '管理员', 'admin_openid']
       );
       console.log('Admin account created: admin/admin123');
+    }
+
+    // Migration for group_id column
+    const hasGroupId = userColumns?.some((col: any) => col.name === 'group_id');
+    if (!hasGroupId) {
+      await db.exec(`ALTER TABLE users ADD COLUMN group_id INTEGER DEFAULT 1`);
+      console.log('Added group_id column to users table');
+    }
+
+    // Create default group if not exists
+    const defaultGroup = await db.get(`SELECT id FROM groups WHERE id = 1`);
+    if (!defaultGroup) {
+      await db.run(`INSERT INTO groups (id, name, description) VALUES (1, '默认小组', '系统默认小组')`);
+      console.log('Default group created');
     }
 
   } catch (err) {

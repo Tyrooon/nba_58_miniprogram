@@ -1,0 +1,301 @@
+/**
+ * Admin Service
+ * Handles all admin operations
+ */
+
+import db from '../db';
+import { config } from '../config';
+
+// ==================== User Management ====================
+
+/**
+ * Delete a user and all related data
+ */
+export const deleteUser = async (userId: number): Promise<void> => {
+  // Check if user exists and is not admin
+  const user = await db.prepare(`SELECT id, is_admin FROM users WHERE id = ?`).get([userId]) as any;
+  if (!user) {
+    throw new Error('用户不存在');
+  }
+  if (user.is_admin) {
+    throw new Error('不能删除管理员账号');
+  }
+
+  // Delete related data first
+  await db.prepare(`DELETE FROM selections WHERE user_id = ?`).run([userId]);
+  await db.prepare(`DELETE FROM frozen_players WHERE user_id = ?`).run([userId]);
+  await db.prepare(`DELETE FROM manager_rosters WHERE user_id = ?`).run([userId]);
+  await db.prepare(`DELETE FROM manager_weekly_scores WHERE user_id = ?`).run([userId]);
+  await db.prepare(`DELETE FROM manager_drafts WHERE user_id = ?`).run([userId]);
+  await db.prepare(`DELETE FROM manager_trade_votes WHERE user_id = ?`).run([userId]);
+  await db.prepare(`DELETE FROM manager_reshuffles WHERE user_id = ?`).run([userId]);
+  await db.prepare(`DELETE FROM draft_order WHERE user_id = ?`).run([userId]);
+
+  // Delete user
+  await db.prepare(`DELETE FROM users WHERE id = ?`).run([userId]);
+};
+
+/**
+ * Get all users with group info
+ */
+export const getAllUsersWithGroup = async (): Promise<any[]> => {
+  const query = `
+    SELECT u.id, u.nickname, u.username, u.total_score, u.is_admin, u.group_id, u.created_at,
+           g.name as group_name
+    FROM users u
+    LEFT JOIN groups g ON u.group_id = g.id
+    ORDER BY u.id ASC
+  `;
+  return await db.prepare(query).all([]) as unknown as any[];
+};
+
+// ==================== Group Management ====================
+
+/**
+ * Get all groups
+ */
+export const getAllGroups = async (): Promise<any[]> => {
+  const query = `
+    SELECT g.*, COUNT(u.id) as member_count
+    FROM groups g
+    LEFT JOIN users u ON g.id = u.group_id
+    GROUP BY g.id
+    ORDER BY g.id ASC
+  `;
+  return await db.prepare(query).all([]) as unknown as any[];
+};
+
+/**
+ * Create a new group
+ */
+export const createGroup = async (name: string, description?: string): Promise<any> => {
+  const existing = await db.prepare(`SELECT id FROM groups WHERE name = ?`).get([name]) as any;
+  if (existing) {
+    throw new Error('小组名称已存在');
+  }
+
+  const result = await db.prepare(
+    `INSERT INTO groups (name, description) VALUES (?, ?)`
+  ).run([name, description || null]) as any;
+
+  return await db.prepare(`SELECT * FROM groups WHERE id = ?`).get([result.lastID]) as any;
+};
+
+/**
+ * Update a group
+ */
+export const updateGroup = async (groupId: number, name?: string, description?: string): Promise<any> => {
+  const group = await db.prepare(`SELECT * FROM groups WHERE id = ?`).get([groupId]) as any;
+  if (!group) {
+    throw new Error('小组不存在');
+  }
+
+  const newName = name ?? group.name;
+  const newDesc = description ?? group.description;
+
+  // Check if name is taken by another group
+  if (name && name !== group.name) {
+    const existing = await db.prepare(`SELECT id FROM groups WHERE name = ? AND id != ?`).get([name, groupId]) as any;
+    if (existing) {
+      throw new Error('小组名称已存在');
+    }
+  }
+
+  await db.prepare(`UPDATE groups SET name = ?, description = ? WHERE id = ?`).run([newName, newDesc, groupId]);
+  return await db.prepare(`SELECT * FROM groups WHERE id = ?`).get([groupId]) as any;
+};
+
+/**
+ * Delete a group (users will be moved to default group)
+ */
+export const deleteGroup = async (groupId: number): Promise<void> => {
+  if (groupId === 1) {
+    throw new Error('不能删除默认小组');
+  }
+
+  // Move users to default group
+  await db.prepare(`UPDATE users SET group_id = 1 WHERE group_id = ?`).run([groupId]);
+
+  // Delete draft orders for this group
+  await db.prepare(`DELETE FROM draft_order WHERE group_id = ?`).run([groupId]);
+
+  // Delete group
+  await db.prepare(`DELETE FROM groups WHERE id = ?`).run([groupId]);
+};
+
+/**
+ * Set user's group
+ */
+export const setUserGroup = async (userId: number, groupId: number): Promise<any> => {
+  const user = await db.prepare(`SELECT id FROM users WHERE id = ?`).get([userId]) as any;
+  if (!user) {
+    throw new Error('用户不存在');
+  }
+
+  const group = await db.prepare(`SELECT id FROM groups WHERE id = ?`).get([groupId]) as any;
+  if (!group) {
+    throw new Error('小组不存在');
+  }
+
+  await db.prepare(`UPDATE users SET group_id = ? WHERE id = ?`).run([groupId, userId]);
+
+  return await db.prepare(`
+    SELECT u.id, u.nickname, u.username, u.group_id, g.name as group_name
+    FROM users u
+    LEFT JOIN groups g ON u.group_id = g.id
+    WHERE u.id = ?
+  `).get([userId]) as any;
+};
+
+// ==================== Draft Order Management ====================
+
+/**
+ * Get draft order for a group and season
+ */
+export const getDraftOrder = async (groupId: number, season: number = config.currentSeason): Promise<any[]> => {
+  const query = `
+    SELECT do.*, u.nickname, u.username
+    FROM draft_order do
+    LEFT JOIN users u ON do.user_id = u.id
+    WHERE do.group_id = ? AND do.season = ?
+    ORDER BY do.order_index ASC
+  `;
+  return await db.prepare(query).all([groupId, season]) as unknown as any[];
+};
+
+/**
+ * Set draft order for a group
+ */
+export const setDraftOrder = async (
+  groupId: number,
+  season: number,
+  orderList: { userId: number; orderIndex: number; round?: number }[]
+): Promise<void> => {
+  // Delete existing order for this group and season
+  await db.prepare(`DELETE FROM draft_order WHERE group_id = ? AND season = ?`).run([groupId, season]);
+
+  // Insert new order
+  for (const item of orderList) {
+    await db.prepare(
+      `INSERT INTO draft_order (group_id, user_id, order_index, round, season) VALUES (?, ?, ?, ?, ?)`
+    ).run([groupId, item.userId, item.orderIndex, item.round || 1, season]);
+  }
+};
+
+/**
+ * Update single user's draft position
+ */
+export const updateUserDraftPosition = async (
+  groupId: number,
+  userId: number,
+  season: number,
+  newOrderIndex: number,
+  round: number = 1
+): Promise<void> => {
+  const existing = await db.prepare(
+    `SELECT * FROM draft_order WHERE group_id = ? AND user_id = ? AND season = ? AND round = ?`
+  ).get([groupId, userId, season, round]) as any;
+
+  if (existing) {
+    await db.prepare(
+      `UPDATE draft_order SET order_index = ? WHERE id = ?`
+    ).run([newOrderIndex, existing.id]);
+  } else {
+    await db.prepare(
+      `INSERT INTO draft_order (group_id, user_id, order_index, round, season) VALUES (?, ?, ?, ?, ?)`
+    ).run([groupId, userId, newOrderIndex, round, season]);
+  }
+};
+
+// ==================== Manager Mode Admin ====================
+
+/**
+ * Admin: Add player to user's roster
+ */
+export const adminAddPlayerToRoster = async (
+  userId: string,
+  playerId: string,
+  playerType: 'regular' | 'rookie',
+  isStarter: boolean = false
+): Promise<void> => {
+  const acquiredAt = new Date().toISOString();
+
+  const query = `
+    INSERT INTO manager_rosters (user_id, player_id, player_type, is_starter, acquired_at)
+    VALUES (?, ?, ?, ?, ?)
+  `;
+
+  await db.prepare(query).run([userId, playerId, playerType, isStarter ? 1 : 0, acquiredAt]);
+};
+
+/**
+ * Admin: Remove player from user's roster
+ */
+export const adminRemovePlayerFromRoster = async (userId: string, playerId: string): Promise<void> => {
+  const query = `DELETE FROM manager_rosters WHERE user_id = ? AND player_id = ?`;
+  await db.prepare(query).run([userId, playerId]);
+};
+
+/**
+ * Admin: Set starters for a user
+ */
+export const adminSetStarters = async (userId: string, starterIds: string[]): Promise<void> => {
+  // Reset all starters
+  await db.prepare(`UPDATE manager_rosters SET is_starter = 0 WHERE user_id = ?`).run([userId]);
+
+  // Set selected players as starters
+  if (starterIds.length > 0) {
+    const placeholders = starterIds.map(() => '?').join(',');
+    const query = `
+      UPDATE manager_rosters SET is_starter = 1
+      WHERE user_id = ? AND player_id IN (${placeholders})
+    `;
+    await db.prepare(query).run([userId, ...starterIds]);
+  }
+};
+
+/**
+ * Admin: Get all users' rosters
+ */
+export const adminGetAllRosters = async (): Promise<any[]> => {
+  const query = `
+    SELECT mr.*, u.nickname as user_nickname, u.username, p.name as player_name, p.team_id, p.position
+    FROM manager_rosters mr
+    LEFT JOIN users u ON mr.user_id = u.id
+    LEFT JOIN players p ON mr.player_id = p.id
+    ORDER BY u.id, mr.is_starter DESC, mr.player_type DESC
+  `;
+  return await db.prepare(query).all([]) as unknown as any[];
+};
+
+/**
+ * Admin: Get roster for specific user
+ */
+export const adminGetUserRoster = async (userId: string): Promise<any[]> => {
+  const query = `
+    SELECT mr.*, p.name as player_name, p.team_id, p.position
+    FROM manager_rosters mr
+    LEFT JOIN players p ON mr.player_id = p.id
+    WHERE mr.user_id = ?
+    ORDER BY mr.is_starter DESC, mr.player_type DESC
+  `;
+  return await db.prepare(query).all([userId]) as unknown as any[];
+};
+
+export default {
+  deleteUser,
+  getAllUsersWithGroup,
+  getAllGroups,
+  createGroup,
+  updateGroup,
+  deleteGroup,
+  setUserGroup,
+  getDraftOrder,
+  setDraftOrder,
+  updateUserDraftPosition,
+  adminAddPlayerToRoster,
+  adminRemovePlayerFromRoster,
+  adminSetStarters,
+  adminGetAllRosters,
+  adminGetUserRoster,
+};
