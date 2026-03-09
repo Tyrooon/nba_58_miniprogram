@@ -74,6 +74,7 @@ export const authLogin = async (username: string, password: string) => {
     nickname: user.nickname,
     avatarUrl: user.avatar_url,
     totalScore: user.total_score,
+    is_admin: user.is_admin || 0,
   };
 };
 
