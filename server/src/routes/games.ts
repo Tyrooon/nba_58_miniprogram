@@ -3,10 +3,19 @@ import { syncDailyData, syncSingleDate, refreshTodayScores, getGamesWithPlayers,
 import { computeDayScores } from '../services/scoringService';
 import { toDateKey } from '../utils/date';
 import { MemCache } from '../utils/cache';
+import { config } from '../config';
 
 const gamesCache = new MemCache<any>(30_000); // 30s TTL
 
 const router = Router();
+
+// 获取选人模式配置
+router.get('/mode-config', (_req, res) => {
+  res.json({
+    currentSeason: config.currentSeason,
+    modeEnabled: config.modeEnabled,
+  });
+});
 
 router.get('/sync-check', async (_req, res, next) => {
   try {

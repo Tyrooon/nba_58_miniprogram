@@ -20,6 +20,14 @@ export const config = {
   // 微信小程序配置
   wechatAppId: process.env.WECHAT_APPID ?? '',
   wechatSecret: process.env.WECHAT_SECRET ?? '',
+
+  // 选人模式配置
+  // 设置为 false 以关闭对应模式
+  modeEnabled: {
+    regular: process.env.MODE_REGULAR !== 'false',      // 常规模式，    plus58: process.env.MODE_PLUS58 !== 'false',        // 正58模式
+    minus58: process.env.MODE_MINUS58 !== 'false',      // 负58模式
+    manager: process.env.MODE_MANAGER !== 'false',      // 经理模式
+  },
 };
 
 const dataDir = process.env.DATA_DIR || path.resolve(__dirname, '..', 'data');
