@@ -46,17 +46,26 @@ const assignBonus = (list: Array<{ selectionId: number; base: number }>) => {
   return map;
 };
 
-const getStatsForDate = async (dateKey: string): Promise<Record<number, number>> => {
+const getStatsForDate = async (dateKey: string): Promise<{
+  stats: Record<number, number>;
+  didNotPlay: Set<number>;
+}> => {
   const rows = await db.prepare(
-    `SELECT player_id, stats_points FROM daily_players
-       WHERE game_date = ? AND stats_status = 'played' AND stats_points IS NOT NULL`
+    `SELECT player_id, stats_points, stats_status FROM daily_players WHERE game_date = ?`
   ).all([dateKey]) as unknown as any[];
 
-  const statsMap: Record<number, number> = {};
+  const stats: Record<number, number> = {};
+  const didNotPlay = new Set<number>();
+
   for (const row of rows) {
-    statsMap[row.player_id] = Number(row.stats_points ?? 0);
+    if (row.stats_status === 'played' && row.stats_points !== null) {
+      stats[row.player_id] = Number(row.stats_points);
+    } else if (row.stats_status !== 'played') {
+      // Player did not play (scheduled, injured, etc.)
+      didNotPlay.add(row.player_id);
+    }
   }
-  return statsMap;
+  return { stats, didNotPlay };
 };
 
 export const computeDayScores = async (targetDate?: string) => {
@@ -69,23 +78,47 @@ export const computeDayScores = async (targetDate?: string) => {
     return { date: dateKey, updated: 0 };
   }
 
-  const stats = await getStatsForDate(dateKey);
+  const { stats, didNotPlay } = await getStatsForDate(dateKey);
 
   const updates: Array<{ id: number; actual: number; base: number; bonus: number; total: number; userId: number }> = [];
   const modeOneList: Array<{ selectionId: number; base: number }> = [];
 
   pendingSelections.forEach((selection: any) => {
-    const actual = stats[selection.player_id];
+    let actual: number;
+    let isDidNotPlay = false;
 
-    if (actual === undefined) return;
+    if (stats[selection.player_id] !== undefined) {
+      // Player played - use actual stats
+      actual = stats[selection.player_id];
+    } else if (didNotPlay.has(Number(selection.player_id))) {
+      // Player did not play - use default 10 for 58 modes (mode 2 and 3)
+      // For regular mode (mode 1), use 0
+      if (selection.play_mode === 2 || selection.play_mode === 3) {
+        actual = 0; // Will result in base score of 10 after formula
+        isDidNotPlay = true;
+      } else {
+        actual = 0;
+        isDidNotPlay = true;
+      }
+    } else {
+      // No data yet, skip
+      return;
+    }
 
-    const base = Number(calcBase(selection.play_mode, actual, selection.player_season_avg).toFixed(2));
+    // For 58 modes with did not play players, base score is always 10
+    let base: number;
+    if (isDidNotPlay && (selection.play_mode === 2 || selection.play_mode === 3)) {
+      base = 10; // Default 10 points for players who didn't play in 58 modes
+    } else {
+      base = Number(calcBase(selection.play_mode, actual, selection.player_season_avg).toFixed(2));
+    }
+
     if (selection.play_mode === 1) {
       modeOneList.push({ selectionId: selection.id, base });
     }
     updates.push({
       id: selection.id,
-      actual,
+      actual: isDidNotPlay ? -1 : actual, // Use -1 to indicate did not play
       base,
       bonus: 0,
       total: base,

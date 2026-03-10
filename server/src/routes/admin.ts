@@ -204,6 +204,34 @@ router.put('/draft-order/user', requireAdmin, async (req, res, next) => {
 
 // ==================== Manager Mode Admin ====================
 
+// Search players by name
+router.get('/players/search', requireAdmin, async (req, res, next) => {
+  try {
+    const { keyword, limit } = req.query;
+    if (!keyword || typeof keyword !== 'string') {
+      return res.status(400).json({ success: false, error: 'keyword is required' });
+    }
+    const players = await adminService.searchPlayers(keyword, limit ? Number(limit) : 20);
+    res.json({ success: true, data: players });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+// Check if player is available in group
+router.get('/players/check-group', requireAdmin, async (req, res, next) => {
+  try {
+    const { playerId, userId } = req.query;
+    if (!playerId || !userId) {
+      return res.status(400).json({ success: false, error: 'playerId and userId are required' });
+    }
+    const result = await adminService.checkPlayerInGroup(playerId as string, userId as string);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
 // Get all users' rosters
 router.get('/manager/rosters', requireAdmin, async (req, res, next) => {
   try {
@@ -256,6 +284,36 @@ router.post('/manager/rosters/remove', requireAdmin, async (req, res, next) => {
   }
 });
 
+// Move player to injury slot
+router.post('/manager/rosters/injury-slot/add', requireAdmin, async (req, res, next) => {
+  try {
+    const { userId, playerId } = req.body;
+    if (!userId || !playerId) {
+      return res.status(400).json({ success: false, error: 'userId and playerId are required' });
+    }
+    const managerService = await import('../services/managerService');
+    await managerService.moveToInjurySlot(userId, playerId);
+    res.json({ success: true, message: '球员已移至伤病席位' });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+// Remove player from injury slot
+router.post('/manager/rosters/injury-slot/remove', requireAdmin, async (req, res, next) => {
+  try {
+    const { userId, playerId } = req.body;
+    if (!userId || !playerId) {
+      return res.status(400).json({ success: false, error: 'userId and playerId are required' });
+    }
+    const managerService = await import('../services/managerService');
+    await managerService.removeFromInjurySlot(userId, playerId);
+    res.json({ success: true, message: '球员已从伤病席位移除' });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
 // Set starters for a user
 router.post('/manager/starters/set', requireAdmin, async (req, res, next) => {
   try {
@@ -268,6 +326,77 @@ router.post('/manager/starters/set', requireAdmin, async (req, res, next) => {
     }
     await adminService.adminSetStarters(userId, starterIds);
     res.json({ success: true, message: '首发阵容已更新' });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+// ==================== User Score Management ====================
+
+// Get user stats (score and bonus)
+router.get('/users/:userId/stats', requireAdmin, async (req, res, next) => {
+  try {
+    const userId = Number(req.params.userId);
+    const stats = await adminService.adminGetUserStats(userId);
+    if (!stats) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+    res.json({ success: true, data: stats });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+// Update user's total score
+router.put('/users/:userId/score', requireAdmin, async (req, res, next) => {
+  try {
+    const userId = Number(req.params.userId);
+    const { totalScore } = req.body;
+    if (typeof totalScore !== 'number') {
+      return res.status(400).json({ success: false, error: 'totalScore must be a number' });
+    }
+    await adminService.adminUpdateUserScore(userId, totalScore);
+    res.json({ success: true, message: '用户积分已更新' });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+// Update user's total bonus
+router.put('/users/:userId/bonus', requireAdmin, async (req, res, next) => {
+  try {
+    const userId = Number(req.params.userId);
+    const { totalBonus } = req.body;
+    if (typeof totalBonus !== 'number') {
+      return res.status(400).json({ success: false, error: 'totalBonus must be a number' });
+    }
+    await adminService.adminUpdateUserBonus(userId, totalBonus);
+    res.json({ success: true, message: '用户Bonus已更新' });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+// ==================== Weekly Calculation ====================
+
+// Run weekly score calculation
+router.post('/manager/weekly-calculate', requireAdmin, async (req, res, next) => {
+  try {
+    const managerService = await import('../services/managerService');
+    await managerService.runWeeklyCalculation();
+    res.json({ success: true, message: '周积分计算完成' });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+// Get weekly scores for a specific week
+router.get('/manager/weekly-scores', requireAdmin, async (req, res, next) => {
+  try {
+    const { weekStart } = req.query;
+    const managerService = await import('../services/managerService');
+    const scores = await managerService.getWeeklyScores(weekStart as string || managerService.getWeekStart());
+    res.json({ success: true, data: scores });
   } catch (error: any) {
     next(error);
   }

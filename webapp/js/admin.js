@@ -56,6 +56,15 @@ const AdminApp = {
     document.getElementById('cancelPlayerBtn').addEventListener('click', () => this.closePlayerModal());
     document.getElementById('confirmPlayerBtn').addEventListener('click', () => this.addPlayerToRoster());
 
+    // Player search with debounce
+    let searchTimeout;
+    document.getElementById('playerSearchInput').addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        this.searchPlayers(e.target.value.trim());
+      }, 300);
+    });
+
     // User group modal
     document.getElementById('closeUserGroupModal').addEventListener('click', () => this.closeUserGroupModal());
     document.getElementById('cancelUserGroupBtn').addEventListener('click', () => this.closeUserGroupModal());
@@ -63,6 +72,11 @@ const AdminApp = {
 
     // Confirm dialog
     document.getElementById('confirmCancelBtn').addEventListener('click', () => this.closeConfirmModal());
+
+    // Score modal
+    document.getElementById('closeScoreModal').addEventListener('click', () => this.closeScoreModal());
+    document.getElementById('cancelScoreBtn').addEventListener('click', () => this.closeScoreModal());
+    document.getElementById('confirmScoreBtn').addEventListener('click', () => this.saveUserScore());
 
     // Sync
     document.getElementById('syncScheduleBtn').addEventListener('click', () => this.syncSchedule());
@@ -202,7 +216,7 @@ const AdminApp = {
     const tbody = document.getElementById('usersTableBody');
 
     if (this.users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="loading-cell">暂无数据</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="loading-cell">暂无数据</td></tr>';
       return;
     }
 
@@ -213,11 +227,13 @@ const AdminApp = {
         <td>${user.nickname || '-'}</td>
         <td>${user.group_name || '默认小组'}</td>
         <td>${Utils.formatScore(user.total_score || 0)}</td>
+        <td>${Utils.formatScore(user.total_bonus || 0)}</td>
         <td>${user.is_admin ? '<span class="admin-badge">管理员</span>' : '-'}</td>
         <td>${user.created_at ? Utils.formatDate(user.created_at, 'YYYY-MM-DD') : '-'}</td>
         <td>
           ${!user.is_admin ? `
             <button class="action-btn edit" onclick="AdminApp.openUserGroupModal(${user.id})">设置小组</button>
+            <button class="action-btn edit" onclick="AdminApp.openScoreModal(${user.id}, ${user.total_score || 0}, ${user.total_bonus || 0})">积分</button>
             <button class="action-btn danger" onclick="AdminApp.deleteUser(${user.id}, '${user.nickname || user.username}')">删除</button>
           ` : '-'}
         </td>
@@ -237,7 +253,7 @@ const AdminApp = {
   renderFilteredUsers(users) {
     const tbody = document.getElementById('usersTableBody');
     if (users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="loading-cell">未找到匹配的用户</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="loading-cell">未找到匹配的用户</td></tr>';
       return;
     }
 
@@ -248,11 +264,13 @@ const AdminApp = {
         <td>${user.nickname || '-'}</td>
         <td>${user.group_name || '默认小组'}</td>
         <td>${Utils.formatScore(user.total_score || 0)}</td>
+        <td>${Utils.formatScore(user.total_bonus || 0)}</td>
         <td>${user.is_admin ? '<span class="admin-badge">管理员</span>' : '-'}</td>
         <td>${user.created_at ? Utils.formatDate(user.created_at, 'YYYY-MM-DD') : '-'}</td>
         <td>
           ${!user.is_admin ? `
             <button class="action-btn edit" onclick="AdminApp.openUserGroupModal(${user.id})">设置小组</button>
+            <button class="action-btn edit" onclick="AdminApp.openScoreModal(${user.id}, ${user.total_score || 0}, ${user.total_bonus || 0})">积分</button>
             <button class="action-btn danger" onclick="AdminApp.deleteUser(${user.id}, '${user.nickname || user.username}')">删除</button>
           ` : '-'}
         </td>
@@ -410,6 +428,48 @@ const AdminApp = {
     }
   },
 
+  // ==================== User Score Management ====================
+
+  openScoreModal(userId, currentScore, currentBonus) {
+    this.selectedUserId = userId;
+    const user = this.users.find(u => u.id === userId);
+    document.getElementById('scoreUserName').textContent = user?.nickname || user?.username || userId;
+    document.getElementById('scoreInput').value = currentScore || 0;
+    document.getElementById('bonusInput').value = currentBonus || 0;
+    document.getElementById('scoreModal').style.display = 'flex';
+  },
+
+  closeScoreModal() {
+    document.getElementById('scoreModal').style.display = 'none';
+    this.selectedUserId = null;
+  },
+
+  async saveUserScore() {
+    const totalScore = parseFloat(document.getElementById('scoreInput').value) || 0;
+    const totalBonus = parseFloat(document.getElementById('bonusInput').value) || 0;
+
+    try {
+      // Update both score and bonus
+      if (totalScore !== undefined) {
+        await this.apiRequest(`/admin/users/${this.selectedUserId}/score`, {
+          method: 'PUT',
+          data: { totalScore }
+        });
+      }
+      if (totalBonus !== undefined) {
+        await this.apiRequest(`/admin/users/${this.selectedUserId}/bonus`, {
+          method: 'PUT',
+          data: { totalBonus }
+        });
+      }
+      this.toast('用户积分已更新', 'success');
+      this.closeScoreModal();
+      await this.loadUsers();
+    } catch (error) {
+      this.toast('更新失败: ' + error.message, 'error');
+    }
+  },
+
   // ==================== Draft Order ====================
 
   async loadDraftOrder() {
@@ -555,10 +615,17 @@ const AdminApp = {
       return;
     }
 
-    const starters = roster.filter(p => p.is_starter);
-    const bench = roster.filter(p => !p.is_starter);
+    const injurySlot = roster.filter(p => p.is_injury_slot);
+    const starters = roster.filter(p => p.is_starter && !p.is_injury_slot);
+    const bench = roster.filter(p => !p.is_starter && !p.is_injury_slot);
 
     container.innerHTML = `
+      <div class="roster-section injury-slot">
+        <div class="roster-section-title">🏥 伤病席位 (${injurySlot.length}/1)</div>
+        <div class="roster-players">
+          ${injurySlot.length > 0 ? injurySlot.map(p => this.renderPlayerCard(p, true)).join('') : '<p class="hint-text">伤病席位为空，可添加符合条件球员</p>'}
+        </div>
+      </div>
       <div class="roster-section">
         <div class="roster-section-title">🌟 首发阵容 (${starters.length})</div>
         <div class="roster-players">
@@ -574,21 +641,41 @@ const AdminApp = {
     `;
   },
 
-  renderPlayerCard(player) {
+  renderPlayerCard(player, isInjurySlot = false) {
     const typeText = player.player_type === 'rookie' ? '新秀' : '常规';
     const injuredText = player.is_injured ? ' (伤病)' : '';
+    const injurySlotText = player.is_injury_slot ? ' <span class="injury-slot-tag">伤病席</span>' : '';
+
+    if (isInjurySlot) {
+      return `
+        <div class="roster-player-card injury-slot-card">
+          <div class="player-info">
+            <div class="player-name">${player.player_name || player.player_id}${injurySlotText}</div>
+            <div class="player-type">${typeText}${injuredText}</div>
+            <div class="player-injury-date">受伤日期: ${player.injured_since || '未知'}</div>
+          </div>
+          <div class="player-actions">
+            <button class="action-btn success" onclick="AdminApp.removeFromInjurySlot('${player.player_id}')">移出伤病席</button>
+            <button class="action-btn danger" onclick="AdminApp.removePlayer('${player.player_id}')">裁掉</button>
+          </div>
+        </div>
+      `;
+    }
 
     return `
-      <div class="roster-player-card ${player.is_starter ? 'starter' : ''}">
+      <div class="roster-player-card ${player.is_starter ? 'starter' : ''} ${player.is_injury_slot ? 'injury-slot' : ''}">
         <div class="player-info">
-          <div class="player-name">${player.player_name || player.player_id}</div>
+          <div class="player-name">${player.player_name || player.player_id}${injurySlotText}</div>
           <div class="player-type">${typeText}${injuredText}</div>
         </div>
         <div class="player-actions">
-          <button class="action-btn ${player.is_starter ? 'danger' : 'success'}"
-            onclick="AdminApp.toggleStarter('${player.player_id}', ${!player.is_starter})">
-            ${player.is_starter ? '取消首发' : '设为首发'}
-          </button>
+          ${!player.is_injury_slot ? `
+            <button class="action-btn ${player.is_starter ? 'danger' : 'success'}"
+              onclick="AdminApp.toggleStarter('${player.player_id}', ${!player.is_starter})">
+              ${player.is_starter ? '取消首发' : '设为首发'}
+            </button>
+            <button class="action-btn warning" onclick="AdminApp.moveToInjurySlot('${player.player_id}', '${player.player_name}')">移至伤病席</button>
+          ` : ''}
           <button class="action-btn danger" onclick="AdminApp.removePlayer('${player.player_id}')">移除</button>
         </div>
       </div>
@@ -600,7 +687,11 @@ const AdminApp = {
       this.toast('请先选择用户', 'error');
       return;
     }
-    document.getElementById('playerIdInput').value = '';
+    document.getElementById('playerSearchInput').value = '';
+    document.getElementById('playerSearchResults').innerHTML = '';
+    document.getElementById('playerSearchResults').classList.remove('show');
+    document.getElementById('selectedPlayerInfo').style.display = 'none';
+    document.getElementById('selectedPlayerId').value = '';
     document.getElementById('playerTypeSelect').value = 'regular';
     document.getElementById('isStarterCheckbox').checked = false;
     document.getElementById('playerModal').style.display = 'flex';
@@ -610,13 +701,79 @@ const AdminApp = {
     document.getElementById('playerModal').style.display = 'none';
   },
 
+  selectedPlayerId: null,
+
+  async searchPlayers(keyword) {
+    const resultsContainer = document.getElementById('playerSearchResults');
+
+    if (!keyword || keyword.length < 1) {
+      resultsContainer.classList.remove('show');
+      return;
+    }
+
+    try {
+      const result = await this.apiRequest(`/admin/players/search?keyword=${encodeURIComponent(keyword)}&limit=15`);
+      const players = result.data || [];
+
+      if (players.length === 0) {
+        resultsContainer.innerHTML = '<div class="player-search-item" style="cursor: default;">未找到匹配的球员</div>';
+        resultsContainer.classList.add('show');
+        return;
+      }
+
+      // Check availability for each player in the user's group
+      const playersWithStatus = await Promise.all(players.map(async (player) => {
+        try {
+          const checkResult = await this.apiRequest(`/admin/players/check-group?playerId=${player.playerId}&userId=${this.currentRosterUserId}`);
+          return { ...player, available: checkResult.data?.available, owner: checkResult.data?.owner };
+        } catch {
+          return { ...player, available: true };
+        }
+      }));
+
+      resultsContainer.innerHTML = playersWithStatus.map(player => `
+        <div class="player-search-item ${!player.available ? 'disabled' : ''}"
+             onclick="AdminApp.selectPlayer('${player.playerId}', '${player.playerName.replace(/'/g, "\\'")}', '${player.teamName}', ${player.seasonAvg}, ${player.available})"
+             title="${!player.available ? '已被同组的 ' + player.owner + ' 选择' : ''}">
+          <div class="player-search-info">
+            <div class="player-search-name">${player.playerName}${player.isRookie ? ' (新秀)' : ''}</div>
+            <div class="player-search-meta">${player.teamName} · ${player.position || '未知位置'}</div>
+          </div>
+          <div class="player-search-stats">
+            <div class="player-search-id">ID: ${player.playerId}</div>
+            <div class="player-search-avg">${player.seasonAvg.toFixed(1)} 分</div>
+            ${!player.available ? `<span class="player-search-tag taken">已被选</span>` : ''}
+          </div>
+        </div>
+      `).join('');
+
+      resultsContainer.classList.add('show');
+    } catch (error) {
+      console.error('Search players error:', error);
+    }
+  },
+
+  selectPlayer(playerId, playerName, teamName, seasonAvg, available) {
+    if (!available) {
+      return;
+    }
+
+    this.selectedPlayerId = playerId;
+    document.getElementById('selectedPlayerId').value = playerId;
+    document.getElementById('selectedPlayerName').textContent = playerName;
+    document.getElementById('selectedPlayerDetail').textContent = `${teamName} · 场均 ${seasonAvg.toFixed(1)} 分 · ID: ${playerId}`;
+    document.getElementById('selectedPlayerInfo').style.display = 'block';
+    document.getElementById('playerSearchResults').classList.remove('show');
+    document.getElementById('playerSearchInput').value = '';
+  },
+
   async addPlayerToRoster() {
-    const playerId = document.getElementById('playerIdInput').value.trim();
+    const playerId = document.getElementById('selectedPlayerId').value;
     const playerType = document.getElementById('playerTypeSelect').value;
     const isStarter = document.getElementById('isStarterCheckbox').checked;
 
     if (!playerId) {
-      this.toast('请输入球员ID', 'error');
+      this.toast('请先搜索并选择一个球员', 'error');
       return;
     }
 
@@ -681,6 +838,42 @@ const AdminApp = {
         await this.loadUserRoster(this.currentRosterUserId);
       } catch (error) {
         this.toast('移除失败: ' + error.message, 'error');
+      }
+    });
+  },
+
+  async moveToInjurySlot(playerId, playerName) {
+    this.showConfirm(`确定要将 "${playerName}" 移至伤病席位吗？\n\n需要该球员连续3场比赛未出场。`, async () => {
+      try {
+        await this.apiRequest('/admin/manager/rosters/injury-slot/add', {
+          method: 'POST',
+          data: {
+            userId: this.currentRosterUserId,
+            playerId
+          }
+        });
+        this.toast('球员已移至伤病席位', 'success');
+        await this.loadUserRoster(this.currentRosterUserId);
+      } catch (error) {
+        this.toast('操作失败: ' + error.message, 'error');
+      }
+    });
+  },
+
+  async removeFromInjurySlot(playerId) {
+    this.showConfirm('确定要将该球员从伤病席位中移除吗？', async () => {
+      try {
+        await this.apiRequest('/admin/manager/rosters/injury-slot/remove', {
+          method: 'POST',
+          data: {
+            userId: this.currentRosterUserId,
+            playerId
+          }
+        });
+        this.toast('球员已从伤病席位移除', 'success');
+        await this.loadUserRoster(this.currentRosterUserId);
+      } catch (error) {
+        this.toast('操作失败: ' + error.message, 'error');
       }
     });
   },

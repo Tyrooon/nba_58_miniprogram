@@ -210,6 +210,82 @@ export const updateUserDraftPosition = async (
 // ==================== Manager Mode Admin ====================
 
 /**
+ * Search players by name
+ */
+export const searchPlayers = async (keyword: string, limit: number = 20): Promise<any[]> => {
+  if (!keyword || keyword.trim().length < 1) {
+    return [];
+  }
+
+  const searchTerm = `%${keyword.trim()}%`;
+
+  // Get unique players with their latest season_avg
+  // Group by player_id and team_id to handle players who changed teams
+  const query = `
+    SELECT
+      dp.player_id,
+      dp.player_name,
+      dp.team_id,
+      MAX(dp.season_avg) as season_avg,
+      p.position,
+      p.is_rookie,
+      COALESCE(
+        (SELECT home_team_name FROM games WHERE home_team_id = dp.team_id LIMIT 1),
+        (SELECT visitor_team_name FROM games WHERE visitor_team_id = dp.team_id LIMIT 1),
+        CAST(dp.team_id AS TEXT)
+      ) as team_name
+    FROM daily_players dp
+    LEFT JOIN players p ON dp.player_id = p.id
+    WHERE dp.player_name LIKE ?
+    GROUP BY dp.player_id, dp.team_id
+    ORDER BY season_avg DESC
+    LIMIT ?
+  `;
+
+  const results = await db.prepare(query).all([searchTerm, limit]) as unknown as any[];
+
+  return results.map(r => ({
+    playerId: r.player_id,
+    playerName: r.player_name,
+    teamId: r.team_id,
+    teamName: r.team_name || String(r.team_id),
+    position: r.position,
+    seasonAvg: r.season_avg || 0,
+    isRookie: r.is_rookie || 0
+  }));
+};
+
+/**
+ * Check if player is already taken in the same group
+ */
+export const checkPlayerInGroup = async (playerId: string, userId: string): Promise<{ available: boolean; owner?: string }> => {
+  // Get user's group
+  const user = await db.prepare(`SELECT group_id FROM users WHERE id = ?`).get([userId]) as any;
+  if (!user) {
+    throw new Error('用户不存在');
+  }
+
+  // Find all users in the same group who have this player
+  const query = `
+    SELECT mr.user_id, u.nickname, u.username
+    FROM manager_rosters mr
+    JOIN users u ON mr.user_id = u.id
+    WHERE mr.player_id = ? AND u.group_id = ? AND mr.user_id != ?
+  `;
+
+  const owner = await db.prepare(query).get([playerId, user.group_id, userId]) as any;
+
+  if (owner) {
+    return {
+      available: false,
+      owner: owner.nickname || owner.username || `用户${owner.user_id}`
+    };
+  }
+
+  return { available: true };
+};
+
+/**
  * Admin: Add player to user's roster
  */
 export const adminAddPlayerToRoster = async (
@@ -218,6 +294,21 @@ export const adminAddPlayerToRoster = async (
   playerType: 'regular' | 'rookie',
   isStarter: boolean = false
 ): Promise<void> => {
+  // Check if player is already in this user's roster
+  const existing = await db.prepare(
+    `SELECT id FROM manager_rosters WHERE user_id = ? AND player_id = ?`
+  ).get([userId, playerId]) as any;
+
+  if (existing) {
+    throw new Error('该球员已在用户阵容中');
+  }
+
+  // Check if player is already taken by another user in the same group
+  const checkResult = await checkPlayerInGroup(playerId, userId);
+  if (!checkResult.available) {
+    throw new Error(`该球员已被同组的 ${checkResult.owner} 选择`);
+  }
+
   const acquiredAt = new Date().toISOString();
 
   const query = `
@@ -282,6 +373,42 @@ export const adminGetUserRoster = async (userId: string): Promise<any[]> => {
   return await db.prepare(query).all([userId]) as unknown as any[];
 };
 
+// ==================== User Score Management ====================
+
+/**
+ * Admin: Update user's total score (常规积分)
+ */
+export const adminUpdateUserScore = async (userId: number, totalScore: number): Promise<void> => {
+  const user = await db.prepare(`SELECT id FROM users WHERE id = ?`).get([userId]) as any;
+  if (!user) {
+    throw new Error('用户不存在');
+  }
+  await db.prepare(`UPDATE users SET total_score = ? WHERE id = ?`).run([totalScore, userId]);
+};
+
+/**
+ * Admin: Update user's total bonus (经理模式bonus)
+ */
+export const adminUpdateUserBonus = async (userId: number, totalBonus: number): Promise<void> => {
+  const user = await db.prepare(`SELECT id FROM users WHERE id = ?`).get([userId]) as any;
+  if (!user) {
+    throw new Error('用户不存在');
+  }
+  await db.prepare(`UPDATE users SET total_bonus = ? WHERE id = ?`).run([totalBonus, userId]);
+};
+
+/**
+ * Admin: Get user stats for editing
+ */
+export const adminGetUserStats = async (userId: number): Promise<any> => {
+  const user = await db.prepare(`
+    SELECT id, nickname, username, total_score, total_bonus, group_id
+    FROM users WHERE id = ?
+  `).get([userId]) as any;
+
+  return user;
+};
+
 export default {
   deleteUser,
   getAllUsersWithGroup,
@@ -293,9 +420,14 @@ export default {
   getDraftOrder,
   setDraftOrder,
   updateUserDraftPosition,
+  searchPlayers,
+  checkPlayerInGroup,
   adminAddPlayerToRoster,
   adminRemovePlayerFromRoster,
   adminSetStarters,
   adminGetAllRosters,
   adminGetUserRoster,
+  adminUpdateUserScore,
+  adminUpdateUserBonus,
+  adminGetUserStats,
 };

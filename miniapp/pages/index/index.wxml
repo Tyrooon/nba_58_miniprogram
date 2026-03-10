@@ -154,8 +154,13 @@
                                 </view>
                                 <view class="p-stat">
                                   <block wx:if="{{game.status === 'In Progress' || game.status === 'Final'}}">
-                                    <text class="p-live-score {{player.stats_points >= 10 ? 'high' : ''}}">{{player.stats_points}}</text>
-                                    <text class="p-live-sub">分</text>
+                                    <block wx:if="{{player.stats_status === 'played'}}">
+                                      <text class="p-live-score {{player.stats_points >= 10 ? 'high' : ''}}">{{player.stats_points}}</text>
+                                      <text class="p-live-sub">分</text>
+                                    </block>
+                                    <block wx:else>
+                                      <text class="p-dnp">未出场</text>
+                                    </block>
                                   </block>
                                   <block wx:else>
                                     <view class="p-avg">均 {{player.seasonAvgDisplay || '--'}}</view>
@@ -189,8 +194,13 @@
                                 </view>
                                 <view class="p-stat">
                                   <block wx:if="{{game.status === 'In Progress' || game.status === 'Final'}}">
-                                    <text class="p-live-score {{player.stats_points >= 10 ? 'high' : ''}}">{{player.stats_points}}</text>
-                                    <text class="p-live-sub">分</text>
+                                    <block wx:if="{{player.stats_status === 'played'}}">
+                                      <text class="p-live-score {{player.stats_points >= 10 ? 'high' : ''}}">{{player.stats_points}}</text>
+                                      <text class="p-live-sub">分</text>
+                                    </block>
+                                    <block wx:else>
+                                      <text class="p-dnp">未出场</text>
+                                    </block>
                                   </block>
                                   <block wx:else>
                                     <view class="p-avg">均 {{player.seasonAvgDisplay || '--'}}</view>

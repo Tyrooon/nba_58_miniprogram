@@ -412,6 +412,29 @@ const bootstrap = async () => {
       console.log('Default group created');
     }
 
+    // Migration for total_bonus column in users table
+    const hasTotalBonus = userColumns?.some((col: any) => col.name === 'total_bonus');
+    if (!hasTotalBonus) {
+      await db.exec(`ALTER TABLE users ADD COLUMN total_bonus REAL DEFAULT 0`);
+      console.log('Added total_bonus column to users table');
+    }
+
+    // Migration for is_injury_slot column in manager_rosters table
+    const rosterColumns = await db.all(`PRAGMA table_info(manager_rosters)`);
+    const hasInjurySlot = rosterColumns?.some((col: any) => col.name === 'is_injury_slot');
+    if (!hasInjurySlot) {
+      await db.exec(`ALTER TABLE manager_rosters ADD COLUMN is_injury_slot INTEGER DEFAULT 0`);
+      console.log('Added is_injury_slot column to manager_rosters table');
+    }
+
+    // Migration for bonus column in manager_weekly_scores table
+    const weeklyScoreColumns = await db.all(`PRAGMA table_info(manager_weekly_scores)`);
+    const hasWeeklyBonus = weeklyScoreColumns?.some((col: any) => col.name === 'bonus');
+    if (!hasWeeklyBonus) {
+      await db.exec(`ALTER TABLE manager_weekly_scores ADD COLUMN bonus REAL DEFAULT 0`);
+      console.log('Added bonus column to manager_weekly_scores table');
+    }
+
   } catch (err) {
     console.error('Database bootstrap error:', err);
   }

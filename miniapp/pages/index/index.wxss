@@ -689,6 +689,12 @@
     margin-left: 4rpx;
 }
 
+.p-dnp {
+    font-size: 22rpx;
+    color: #9CA3AF;
+    font-weight: 500;
+}
+
 .no-players {
     display: flex;
     flex-direction: column;

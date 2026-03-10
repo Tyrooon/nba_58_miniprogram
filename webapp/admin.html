@@ -92,7 +92,8 @@
                   <th>用户名</th>
                   <th>昵称</th>
                   <th>小组</th>
-                  <th>积分</th>
+                  <th>常规积分</th>
+                  <th>经理Bonus</th>
                   <th>管理员</th>
                   <th>注册时间</th>
                   <th>操作</th>
@@ -210,15 +211,23 @@
 
     <!-- Modal: Add Player -->
     <div class="modal-overlay" id="playerModal" style="display: none;">
-      <div class="modal-content">
+      <div class="modal-content" style="max-width: 600px;">
         <div class="modal-header">
           <h2>添加球员到阵容</h2>
           <button class="modal-close" id="closePlayerModal">&times;</button>
         </div>
         <div class="modal-body">
           <div class="form-field">
-            <label>球员 ID</label>
-            <input type="text" id="playerIdInput" placeholder="请输入球员 ID">
+            <label>搜索球员</label>
+            <input type="text" id="playerSearchInput" placeholder="输入球员名称搜索..." autocomplete="off">
+            <div id="playerSearchResults" class="player-search-results"></div>
+          </div>
+          <div id="selectedPlayerInfo" class="selected-player-info" style="display: none;">
+            <div class="selected-player-card">
+              <span class="selected-player-name" id="selectedPlayerName"></span>
+              <span class="selected-player-detail" id="selectedPlayerDetail"></span>
+              <input type="hidden" id="selectedPlayerId">
+            </div>
           </div>
           <div class="form-field">
             <label>球员类型</label>
@@ -237,6 +246,31 @@
         <div class="modal-footer">
           <button class="secondary-btn" id="cancelPlayerBtn">取消</button>
           <button class="primary-btn" id="confirmPlayerBtn">确认添加</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Edit User Score -->
+    <div class="modal-overlay" id="scoreModal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>编辑用户积分</h2>
+          <button class="modal-close" id="closeScoreModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>用户: <strong id="scoreUserName"></strong></p>
+          <div class="form-field">
+            <label>常规积分 (total_score)</label>
+            <input type="number" id="scoreInput" step="0.1" class="text-input">
+          </div>
+          <div class="form-field">
+            <label>经理模式Bonus (total_bonus)</label>
+            <input type="number" id="bonusInput" step="0.1" class="text-input">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="secondary-btn" id="cancelScoreBtn">取消</button>
+          <button class="primary-btn" id="confirmScoreBtn">保存</button>
         </div>
       </div>
     </div>

@@ -815,14 +815,12 @@ export const getGamesByDateRange = async (start: string, end: string) => {
   `);
   const allPlayers = await playersStmt.all([start, end]) as unknown as any[];
 
-  // 确保allPlayers是数组
-  if (!Array.isArray(allPlayers)) {
-    return [];
-  }
+  // 确保allPlayers是数组，如果不是则设为空数组
+  const allPlayersArray = Array.isArray(allPlayers) ? allPlayers : [];
 
   // 按日期和球队分组球员
   const playersByDateAndTeam = new Map<string, Map<number, any[]>>();
-  for (const player of allPlayers) {
+  for (const player of allPlayersArray) {
     const dateKey = player.game_date;
     if (!playersByDateAndTeam.has(dateKey)) {
       playersByDateAndTeam.set(dateKey, new Map());

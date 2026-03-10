@@ -14,6 +14,7 @@ export interface ManagerRoster {
   is_starter: number;
   is_injured: number;
   injured_since: string | null;
+  is_injury_slot: number;
   acquired_at: string;
 }
 
@@ -24,6 +25,7 @@ export interface ManagerWeeklyScore {
   total_points: number;
   rank: number | null;
   score: number;
+  bonus: number;
 }
 
 export interface ManagerDraft {
@@ -125,23 +127,128 @@ export const calculateWeeklyPoints = async (userId: string, weekStart: string): 
 
 /**
  * Check if player can be moved to injured list
- * Player must not have played in last 7 days
+ * Player must not have played in last 3 games
  */
-export const canMoveToInjured = async (playerId: string): Promise<boolean> => {
-  const query = `
-    SELECT COUNT(*) as games_played
-    FROM player_game_log
+export const canMoveToInjured = async (playerId: string): Promise<{ eligible: boolean; missedGames: number }> => {
+  // Get the player's most recent team
+  const playerTeam = await db.prepare(`
+    SELECT team_id FROM daily_players
     WHERE player_id = ?
-      AND game_date >= date('now', '-7 days')
-      AND game_date <= date('now')
-  `;
+    ORDER BY game_date DESC
+    LIMIT 1
+  `).get([playerId]) as any;
 
-  const result = await db.prepare(query).get([playerId]) as any;
-  return result.games_played === 0;
+  if (!playerTeam) {
+    return { eligible: false, missedGames: 0 };
+  }
+
+  // Get the last 3 game dates for this team
+  const recentGames = await db.prepare(`
+    SELECT DISTINCT game_date
+    FROM daily_players
+    WHERE team_id = ? AND game_date <= date('now')
+    ORDER BY game_date DESC
+    LIMIT 3
+  `).all([playerTeam.team_id]) as unknown as any[];
+
+  if (recentGames.length < 3) {
+    return { eligible: false, missedGames: 0 };
+  }
+
+  // Check if player appeared in any of these games
+  const gameDates = recentGames.map(g => g.game_date);
+  const placeholders = gameDates.map(() => '?').join(',');
+
+  const playerGames = await db.prepare(`
+    SELECT game_date
+    FROM daily_players
+    WHERE player_id = ? AND game_date IN (${placeholders})
+    AND stats_status = 'played'
+  `).all([playerId, ...gameDates]) as unknown as any[];
+
+  const playedDates = playerGames.map(g => g.game_date);
+  const missedCount = gameDates.filter(d => !playedDates.includes(d)).length;
+
+  return {
+    eligible: missedCount >= 3,
+    missedGames: missedCount
+  };
 };
 
 /**
- * Move player to injured list
+ * Move player to injury slot (requires 3 consecutive missed games)
+ */
+export const moveToInjurySlot = async (userId: string, playerId: string): Promise<void> => {
+  // Check if player is eligible for injury slot
+  const eligibility = await canMoveToInjured(playerId);
+  if (!eligibility.eligible) {
+    throw new Error(`该球员不符合伤病席位条件（需要连续3场未出场，当前缺席${eligibility.missedGames}场）`);
+  }
+
+  // Check if player is in user's roster
+  const rosterEntry = await db.prepare(`
+    SELECT * FROM manager_rosters WHERE user_id = ? AND player_id = ?
+  `).get([userId, playerId]) as any;
+
+  if (!rosterEntry) {
+    throw new Error('该球员不在用户阵容中');
+  }
+
+  // Check if user already has a player in injury slot
+  const existingInjured = await db.prepare(`
+    SELECT * FROM manager_rosters WHERE user_id = ? AND is_injury_slot = 1
+  `).get([userId]) as any;
+
+  if (existingInjured) {
+    throw new Error('伤病席位已被占用，请先移除当前伤病球员');
+  }
+
+  // Move player to injury slot
+  const injuredSince = new Date().toISOString().split('T')[0];
+  await db.prepare(`
+    UPDATE manager_rosters
+    SET is_injury_slot = 1, is_injured = 1, injured_since = ?, is_starter = 0
+    WHERE user_id = ? AND player_id = ?
+  `).run([injuredSince, userId, playerId]);
+};
+
+/**
+ * Remove player from injury slot
+ */
+export const removeFromInjurySlot = async (userId: string, playerId: string): Promise<void> => {
+  const rosterEntry = await db.prepare(`
+    SELECT * FROM manager_rosters WHERE user_id = ? AND player_id = ? AND is_injury_slot = 1
+  `).get([userId, playerId]) as any;
+
+  if (!rosterEntry) {
+    throw new Error('该球员不在伤病席位中');
+  }
+
+  await db.prepare(`
+    UPDATE manager_rosters SET is_injury_slot = 0, is_injured = 0, injured_since = NULL
+    WHERE user_id = ? AND player_id = ?
+  `).run([userId, playerId]);
+};
+
+/**
+ * Get injury slot info for a user
+ */
+export const getInjurySlotInfo = async (userId: string): Promise<{ hasInjurySlot: boolean; injuredPlayer?: any }> => {
+  const injuredPlayer = await db.prepare(`
+    SELECT mr.*, p.name as player_name, p.team_id, p.position
+    FROM manager_rosters mr
+    LEFT JOIN players p ON mr.player_id = p.id
+    WHERE mr.user_id = ? AND mr.is_injury_slot = 1
+  `).get([userId]) as any;
+
+  return {
+    hasInjurySlot: !!injuredPlayer,
+    injuredPlayer: injuredPlayer || undefined
+  };
+};
+
+/**
+ * Move player to injured list (legacy function, kept for compatibility)
  */
 export const moveToInjured = async (userId: string, playerId: string): Promise<void> => {
   const injuredSince = new Date().toISOString().split('T')[0];
@@ -349,6 +456,174 @@ export const executeReshuffle = async (userId: string, retainedPlayerIds: string
   await db.prepare(insertQuery).run([userId, JSON.stringify(retainedPlayerIds)]);
 };
 
+// ==================== Weekly Scores & Bonuses ====================
+
+/**
+ * Get the start of current week (Sunday)
+ */
+export const getWeekStart = (date?: Date): string => {
+  const d = date || new Date();
+  const day = d.getDay();
+  d.setDate(d.getDate() - day);
+  return d.toISOString().split('T')[0];
+};
+
+/**
+ * Calculate weekly scores for all users
+ * Week is from Sunday to Saturday
+ */
+export const calculateWeeklyScores = async (weekStart?: string): Promise<void> => {
+  const weekStartStr = weekStart || getWeekStart();
+
+  // Calculate week end (Saturday)
+  const weekEnd = new Date(weekStartStr);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  const weekEndStr = weekEnd.toISOString().split('T')[0];
+
+  console.log(`[ManagerService] Calculating weekly scores for ${weekStartStr} to ${weekEndStr}`);
+
+  // Get all users with their groups
+  const users = await db.prepare(`
+    SELECT id, group_id FROM users WHERE group_id IS NOT NULL
+  `).all([]) as unknown as any[];
+
+  // Group users by group_id
+  const usersByGroup = new Map<number, any[]>();
+  for (const user of users) {
+    if (!usersByGroup.has(user.group_id)) {
+      usersByGroup.set(user.group_id, []);
+    }
+    usersByGroup.get(user.group_id)!.push(user);
+  }
+
+  // Calculate scores for each group
+  for (const [groupId, groupUsers] of usersByGroup) {
+    const userScores: { userId: string; totalPoints: number }[] = [];
+
+    for (const user of groupUsers) {
+      // Get all starter players' actual scores for this week from player_game_log
+      const scores = await db.prepare(`
+        SELECT SUM(pgl.points) as total_points
+        FROM player_game_log pgl
+        JOIN manager_rosters mr ON pgl.player_sb_id = mr.player_id
+        WHERE mr.user_id = ?
+          AND mr.is_starter = 1
+          AND mr.is_injury_slot = 0
+          AND pgl.game_date >= ?
+          AND pgl.game_date <= ?
+      `).get([user.id, weekStartStr, weekEndStr]) as any;
+
+      const totalPoints = scores?.total_points || 0;
+      userScores.push({ userId: String(user.id), totalPoints });
+    }
+
+    // Sort by total points descending
+    userScores.sort((a, b) => b.totalPoints - a.totalPoints);
+
+    // Assign ranks and save to database
+    for (let i = 0; i < userScores.length; i++) {
+      const rank = i + 1;
+      const { userId, totalPoints } = userScores[i];
+
+      // Insert or update weekly score
+      await db.prepare(`
+        INSERT INTO manager_weekly_scores (user_id, week_start, total_points, rank)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id, week_start) DO UPDATE SET
+          total_points = excluded.total_points,
+          rank = excluded.rank
+      `).run([userId, weekStartStr, totalPoints, rank]);
+    }
+  }
+
+  console.log(`[ManagerService] Weekly scores calculated for ${users.length} users`);
+};
+
+/**
+ * Distribute weekly bonuses based on rankings
+ * N users in group: 1st gets N+1, 2nd gets N-1, 3rd gets N-2, etc.
+ */
+export const distributeWeeklyBonuses = async (weekStart?: string): Promise<void> => {
+  const weekStartStr = weekStart || getWeekStart();
+
+  console.log(`[ManagerService] Distributing weekly bonuses for week ${weekStartStr}`);
+
+  // Get all groups
+  const groups = await db.prepare(`SELECT id FROM groups`).all([]) as unknown as any[];
+
+  for (const group of groups) {
+    // Get weekly scores for this group, sorted by rank
+    const scores = await db.prepare(`
+      SELECT mws.user_id, mws.rank, mws.total_points, u.group_id
+      FROM manager_weekly_scores mws
+      JOIN users u ON mws.user_id = u.id
+      WHERE mws.week_start = ? AND u.group_id = ?
+      ORDER BY mws.rank ASC
+    `).all([weekStartStr, group.id]) as unknown as any[];
+
+    const N = scores.length;
+
+    for (const score of scores) {
+      let bonus: number;
+
+      if (score.rank === 1) {
+        bonus = N + 1;
+      } else {
+        bonus = N - score.rank + 1;
+      }
+
+      // Update user's total_bonus
+      await db.prepare(`
+        UPDATE users SET total_bonus = COALESCE(total_bonus, 0) + ? WHERE id = ?
+      `).run([bonus, score.user_id]);
+
+      // Update weekly score with bonus
+      await db.prepare(`
+        UPDATE manager_weekly_scores SET bonus = ? WHERE user_id = ? AND week_start = ?
+      `).run([bonus, score.user_id, weekStartStr]);
+    }
+
+    console.log(`[ManagerService] Group ${group.id}: distributed bonuses to ${N} users`);
+  }
+};
+
+/**
+ * Run weekly calculation (scores + bonuses)
+ */
+export const runWeeklyCalculation = async (): Promise<void> => {
+  const weekStart = getWeekStart();
+  await calculateWeeklyScores(weekStart);
+  await distributeWeeklyBonuses(weekStart);
+};
+
+// ==================== Admin Functions ====================
+
+/**
+ * Admin: Update user's total score
+ */
+export const adminUpdateUserScore = async (userId: string, totalScore: number): Promise<void> => {
+  await db.prepare(`UPDATE users SET total_score = ? WHERE id = ?`).run([totalScore, userId]);
+};
+
+/**
+ * Admin: Update user's total bonus
+ */
+export const adminUpdateUserBonus = async (userId: string, totalBonus: number): Promise<void> => {
+  await db.prepare(`UPDATE users SET total_bonus = ? WHERE id = ?`).run([totalBonus, userId]);
+};
+
+/**
+ * Admin: Get user stats for admin panel
+ */
+export const adminGetUserStats = async (userId: string): Promise<any> => {
+  const user = await db.prepare(`
+    SELECT id, nickname, username, total_score, total_bonus, group_id
+    FROM users WHERE id = ?
+  `).get([userId]) as any;
+
+  return user;
+};
+
 export default {
   snakeDraftOrder,
   getUserRoster,
@@ -357,6 +632,9 @@ export default {
   canMoveToInjured,
   moveToInjured,
   releaseFromInjured,
+  moveToInjurySlot,
+  removeFromInjurySlot,
+  getInjurySlotInfo,
   addPlayerToRoster,
   removePlayerFromRoster,
   checkRosterConstraints,
@@ -366,4 +644,11 @@ export default {
   getPendingTrades,
   updateTradeStatus,
   executeReshuffle,
+  getWeekStart,
+  calculateWeeklyScores,
+  distributeWeeklyBonuses,
+  runWeeklyCalculation,
+  adminUpdateUserScore,
+  adminUpdateUserBonus,
+  adminGetUserStats,
 };
