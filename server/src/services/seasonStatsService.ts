@@ -84,9 +84,9 @@ export const aggregateSeasonStatsForDate = async (dateKey: string) => {
         team_name: player.team_name,
         points: Number(player.stats_points ?? 0),
         game_date: dateKey
-      });
+      } as any);
     }
-    await insertLog.run({ game_date: dateKey });
+    await insertLog.run({ game_date: dateKey } as any);
     await db.exec('COMMIT');
   } catch (error) {
     await db.exec('ROLLBACK');
