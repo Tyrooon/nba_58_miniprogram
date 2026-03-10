@@ -75,16 +75,25 @@ export const snakeDraftOrder = (userIds: string[]): string[] => {
 /**
  * Get user's manager roster
  */
-export const getUserRoster = async (userId: string): Promise<ManagerRoster[]> => {
+export const getUserRoster = async (userId: string): Promise<any[]> => {
   const query = `
-    SELECT mr.*, p.name as player_name, p.team_id, p.position
+    SELECT mr.*,
+      dp.player_name,
+      dp.team_id,
+      COALESCE(
+        (SELECT home_team_name FROM games WHERE home_team_id = dp.team_id LIMIT 1),
+        (SELECT visitor_team_name FROM games WHERE visitor_team_id = dp.team_id LIMIT 1),
+        CAST(dp.team_id AS TEXT)
+      ) as team_name,
+      dp.season_avg
     FROM manager_rosters mr
-    LEFT JOIN players p ON mr.player_id = p.id
+    LEFT JOIN daily_players dp ON mr.player_id = dp.player_id
     WHERE mr.user_id = ?
-    ORDER BY mr.is_injured, mr.player_type DESC, p.name
+    GROUP BY mr.player_id
+    ORDER BY mr.is_injured, mr.player_type DESC, dp.player_name
   `;
 
-  return (await db.prepare(query).all([userId])) as unknown as ManagerRoster[];
+  return (await db.prepare(query).all([userId])) as unknown as any[];
 };
 
 /**
@@ -235,10 +244,18 @@ export const removeFromInjurySlot = async (userId: string, playerId: string): Pr
  */
 export const getInjurySlotInfo = async (userId: string): Promise<{ hasInjurySlot: boolean; injuredPlayer?: any }> => {
   const injuredPlayer = await db.prepare(`
-    SELECT mr.*, p.name as player_name, p.team_id, p.position
+    SELECT mr.*,
+      dp.player_name,
+      dp.team_id,
+      COALESCE(
+        (SELECT home_team_name FROM games WHERE home_team_id = dp.team_id LIMIT 1),
+        (SELECT visitor_team_name FROM games WHERE visitor_team_id = dp.team_id LIMIT 1),
+        CAST(dp.team_id AS TEXT)
+      ) as team_name
     FROM manager_rosters mr
-    LEFT JOIN players p ON mr.player_id = p.id
+    LEFT JOIN daily_players dp ON mr.player_id = dp.player_id
     WHERE mr.user_id = ? AND mr.is_injury_slot = 1
+    LIMIT 1
   `).get([userId]) as any;
 
   return {

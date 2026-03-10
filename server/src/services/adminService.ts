@@ -350,10 +350,21 @@ export const adminSetStarters = async (userId: string, starterIds: string[]): Pr
  */
 export const adminGetAllRosters = async (): Promise<any[]> => {
   const query = `
-    SELECT mr.*, u.nickname as user_nickname, u.username, p.name as player_name, p.team_id, p.position
+    SELECT mr.*,
+      u.nickname as user_nickname,
+      u.username,
+      dp.player_name,
+      dp.team_id,
+      COALESCE(
+        (SELECT home_team_name FROM games WHERE home_team_id = dp.team_id LIMIT 1),
+        (SELECT visitor_team_name FROM games WHERE visitor_team_id = dp.team_id LIMIT 1),
+        CAST(dp.team_id AS TEXT)
+      ) as team_name,
+      dp.season_avg
     FROM manager_rosters mr
     LEFT JOIN users u ON mr.user_id = u.id
-    LEFT JOIN players p ON mr.player_id = p.id
+    LEFT JOIN daily_players dp ON mr.player_id = dp.player_id
+    GROUP BY mr.id
     ORDER BY u.id, mr.is_starter DESC, mr.player_type DESC
   `;
   return await db.prepare(query).all([]) as unknown as any[];
@@ -364,10 +375,19 @@ export const adminGetAllRosters = async (): Promise<any[]> => {
  */
 export const adminGetUserRoster = async (userId: string): Promise<any[]> => {
   const query = `
-    SELECT mr.*, p.name as player_name, p.team_id, p.position
+    SELECT mr.*,
+      dp.player_name,
+      dp.team_id,
+      COALESCE(
+        (SELECT home_team_name FROM games WHERE home_team_id = dp.team_id LIMIT 1),
+        (SELECT visitor_team_name FROM games WHERE visitor_team_id = dp.team_id LIMIT 1),
+        CAST(dp.team_id AS TEXT)
+      ) as team_name,
+      dp.season_avg
     FROM manager_rosters mr
-    LEFT JOIN players p ON mr.player_id = p.id
+    LEFT JOIN daily_players dp ON mr.player_id = dp.player_id
     WHERE mr.user_id = ?
+    GROUP BY mr.id
     ORDER BY mr.is_starter DESC, mr.player_type DESC
   `;
   return await db.prepare(query).all([userId]) as unknown as any[];
