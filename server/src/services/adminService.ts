@@ -40,7 +40,7 @@ export const deleteUser = async (userId: number): Promise<void> => {
  */
 export const getAllUsersWithGroup = async (): Promise<any[]> => {
   const query = `
-    SELECT u.id, u.nickname, u.username, u.total_score, u.is_admin, u.group_id, u.created_at,
+    SELECT u.id, u.nickname, u.username, u.total_score, u.total_bonus, u.is_admin, u.group_id, u.created_at,
            g.name as group_name
     FROM users u
     LEFT JOIN groups g ON u.group_id = g.id
