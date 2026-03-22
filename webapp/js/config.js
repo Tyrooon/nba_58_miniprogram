@@ -2,7 +2,7 @@
 // Change this to your server address
 const CONFIG = {
   API_BASE: window.location.hostname === 'localhost'
-    ? 'http://localhost:4000/api'
+    ? 'http://localhost:80/api'
     : window.location.origin + '/api',
   
   MODE_MAP: {
