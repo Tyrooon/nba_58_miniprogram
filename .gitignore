@@ -45,3 +45,4 @@ boxscore.json
 # WeChat Mini Program
 miniapp/project.private.config.json
 
+.claude/
