@@ -16,7 +16,8 @@ const App = {
     frozenPlayerIds: [],
     selectionInfo: null,
     currentTab: 'schedule',
-    dateOptions: []
+    dateOptions: [],
+    entertainmentExpanded: true
   },
 
   // DOM Elements cache
@@ -64,6 +65,9 @@ const App = {
       plus58Selection: document.getElementById('plus58Selection'),
       minus58Selection: document.getElementById('minus58Selection'),
       lockTip: document.getElementById('lockTip'),
+      entertainmentGroupHeader: document.getElementById('entertainmentGroupHeader'),
+      entertainmentExpandIcon: document.getElementById('entertainmentExpandIcon'),
+      entertainmentSubList: document.getElementById('entertainmentSubList'),
 
       // Pages
       profilePage: document.getElementById('profilePage'),
@@ -75,6 +79,7 @@ const App = {
       userNickname: document.getElementById('userNickname'),
       userGroupName: document.getElementById('userGroupName'),
       userTotalScore: document.getElementById('userTotalScore'),
+      userTotalBonus: document.getElementById('userTotalBonus'),
       userRank: document.getElementById('userRank'),
       frozenList: document.getElementById('frozenList'),
       historyMenuItem: document.getElementById('historyMenuItem'),
@@ -154,6 +159,11 @@ const App = {
     this.elements.openModePanel.addEventListener('click', () => this.showModePanel());
     this.elements.modeSheetMask.addEventListener('click', () => this.hideModePanel());
     this.elements.closeModePanel.addEventListener('click', () => this.hideModePanel());
+
+    // Entertainment mode group toggle
+    if (this.elements.entertainmentGroupHeader) {
+      this.elements.entertainmentGroupHeader.addEventListener('click', () => this.toggleEntertainmentMode());
+    }
 
     // Mode items
     document.querySelectorAll('.mode-item').forEach(item => {
@@ -886,11 +896,40 @@ const App = {
   },
 
   // Mode Panel
+  _entertainmentExpanded: false,
+
   async showModePanel() {
     await this.loadDateOptions();
     await this.fetchCurrentSelections(this.state.selectedDate);
     this.elements.modeSheetMask.classList.add('show');
     this.elements.modeSheet.classList.add('show');
+    
+    // 绑定娱乐模式分组点击事件
+    this.bindEntertainmentGroup();
+  },
+
+  bindEntertainmentGroup() {
+    const header = document.getElementById('entertainmentGroupHeader');
+    const subList = document.getElementById('entertainmentSubList');
+    const expandIcon = document.getElementById('entertainmentExpandIcon');
+    
+    if (!header || !subList || !expandIcon) return;
+    
+    // 移除旧的事件监听器
+    const newHeader = header.cloneNode(true);
+    header.parentNode.replaceChild(newHeader, header);
+    
+    newHeader.addEventListener('click', () => {
+      this._entertainmentExpanded = !this._entertainmentExpanded;
+      
+      if (this._entertainmentExpanded) {
+        subList.classList.add('show');
+        expandIcon.classList.add('expanded');
+      } else {
+        subList.classList.remove('show');
+        expandIcon.classList.remove('expanded');
+      }
+    });
   },
 
   hideModePanel() {
@@ -1115,8 +1154,11 @@ const App = {
       this.elements.userNickname.textContent = this.state.user.nickname || '球迷';
       this.elements.userAvatar.src = this._resolveAvatarUrl(this.state.user.avatarUrl);
       this.elements.userTotalScore.textContent = Utils.formatScore(this.state.user.totalScore || 0);
+      if (this.elements.userTotalBonus) {
+        this.elements.userTotalBonus.textContent = Utils.formatScore(this.state.user.bonus || 0);
+      }
       if (this.elements.userGroupName) {
-        this.elements.userGroupName.textContent = '默认小组';
+        this.elements.userGroupName.textContent = this.state.user.groupName || '默认小组';
       }
 
       this.loadUserRank();
@@ -1207,7 +1249,13 @@ const App = {
     try {
       const res = await API.getLeaderboard('overall');
       const list = res?.data || res || [];
-      const myRank = list.findIndex(u => u.userId === this.state.user.id || u.id === this.state.user.id);
+      // Sort by bonus (descending), with totalScore as fallback
+      const sorted = list.sort((a, b) => {
+        const aBonus = a.bonus ?? a.totalScore ?? 0;
+        const bBonus = b.bonus ?? b.totalScore ?? 0;
+        return bBonus - aBonus;
+      });
+      const myRank = sorted.findIndex(u => u.userId === this.state.user.id || u.id === this.state.user.id);
       this.elements.userRank.textContent = myRank >= 0 ? myRank + 1 : '--';
     } catch (error) {
       console.error('Load rank error:', error);
@@ -1249,8 +1297,26 @@ const App = {
   },
 
   // History
+  _historyTab: 'entertainment', // 'entertainment' | 'manager'
+  _historyBound: false,
+
   async showHistoryPage() {
     this.elements.historyPage.style.display = 'block';
+    
+    // 绑定 Tab 切换事件（只绑定一次）
+    if (!this._historyBound) {
+      const tabs = document.querySelectorAll('#historyTabs .history-tab');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          tabs.forEach(t => t.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          this._historyTab = e.currentTarget.dataset.tab;
+          this.renderHistory();
+        });
+      });
+      this._historyBound = true;
+    }
+    
     await this.loadHistory();
   },
 
@@ -1261,11 +1327,36 @@ const App = {
   async loadHistory() {
     try {
       const data = await API.getSelectionHistory(this.state.user.id, 50);
+      this._allHistoryData = data || [];
+      this.renderHistory();
+    } catch (error) {
+      console.error('Load history error:', error);
+      this.elements.historyList.innerHTML = '<div class="no-players">加载失败</div>';
+    }
+  },
 
-      if (data && data.length) {
-        let html = '';
-        data.forEach(record => {
-          const date = new Date(record.game_date);
+  renderHistory() {
+    const tab = this._historyTab;
+    let filteredData = [];
+
+    if (tab === 'entertainment') {
+      // 娱乐模式：play_mode 为 1/2/3
+      filteredData = this._allHistoryData.filter(r => 
+        r.play_mode === 1 || r.play_mode === 2 || r.play_mode === 3
+      );
+    } else {
+      // 经理模式：play_mode 为 4 或 'manager'
+      filteredData = this._allHistoryData.filter(r => 
+        r.play_mode === 4 || r.play_mode === 'manager'
+      );
+    }
+
+    if (filteredData.length) {
+      let html = '';
+      filteredData.forEach(record => {
+        const date = new Date(record.game_date);
+        
+        if (tab === 'entertainment') {
           html += `
             <div class="history-card">
               <div class="history-header">
@@ -1279,14 +1370,26 @@ const App = {
               </div>
             </div>
           `;
-        });
-        this.elements.historyList.innerHTML = html;
-      } else {
-        this.elements.historyList.innerHTML = '<div class="no-players">暂无记录</div>';
-      }
-    } catch (error) {
-      console.error('Load history error:', error);
-      this.elements.historyList.innerHTML = '<div class="no-players">加载失败</div>';
+        } else {
+          // 经理模式显示
+          html += `
+            <div class="history-card manager-card">
+              <div class="history-header">
+                <span class="history-date">${Utils.formatDate(date, 'YYYY-MM-DD')}</span>
+                <span class="history-mode">经理模式 · 第${record.week_number || '--'}周</span>
+              </div>
+              <div class="history-player">首发阵容</div>
+              <div class="history-stats">
+                <span class="history-score">总得分: ${record.total_score || '--'} 分</span>
+              </div>
+            </div>
+          `;
+        }
+      });
+      this.elements.historyList.innerHTML = html;
+    } else {
+      const emptyText = tab === 'entertainment' ? '暂无娱乐模式战绩' : '暂无经理模式战绩';
+      this.elements.historyList.innerHTML = `<div class="no-players">${emptyText}</div>`;
     }
   },
 
@@ -1303,6 +1406,8 @@ const App = {
   // Scoreboard
   _scoreboardBound: false,
   _scoreboardData: { 1: [], 2: [], 3: [] },
+  _scoreboardMainTab: 'entertainment', // 'entertainment' | 'manager'
+  _scoreboardSubMode: 1, // 1=常规, 2=正58, 3=负58
 
   async showScoreboardPage() {
     this.elements.scoreboardPage.style.display = 'block';
@@ -1310,13 +1415,36 @@ const App = {
     this.elements.scoreboardDateInput.value = targetDate;
 
     if (!this._scoreboardBound) {
+      // 主Tab切换（娱乐模式/经理模式）
+      const mainTabs = document.querySelectorAll('#scoreboardMainTabs .sb-main-tab');
+      mainTabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          mainTabs.forEach(t => t.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          this._scoreboardMainTab = e.currentTarget.dataset.tab;
+          
+          // 显示/隐藏子Tab
+          const subTabsContainer = document.getElementById('scoreboardTabs');
+          if (this._scoreboardMainTab === 'entertainment') {
+            subTabsContainer.style.display = 'flex';
+          } else {
+            subTabsContainer.style.display = 'none';
+          }
+          
+          this.renderScoreboard();
+        });
+      });
+
+      // 子Tab切换（常规/正58/负58）
       this.elements.scoreboardTabs.querySelectorAll('.sb-tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
           this.elements.scoreboardTabs.querySelectorAll('.sb-tab').forEach(t => t.classList.remove('active'));
           e.currentTarget.classList.add('active');
+          this._scoreboardSubMode = parseInt(e.currentTarget.dataset.mode);
           this.renderScoreboard();
         });
       });
+
       this.elements.scoreboardDateInput.addEventListener('change', (e) => {
         this.loadDailyScoreboard(e.target.value);
       });
@@ -1543,6 +1671,7 @@ const App = {
     try {
       const res = await API.getDailyScoreboard(date);
       this._scoreboardData = res?.modes || { 1: [], 2: [], 3: [] };
+      this._scoreboardManagerData = res?.manager || [];
       this.renderScoreboard();
     } catch (error) {
       console.error('Scoreboard load error:', error);
@@ -1551,18 +1680,29 @@ const App = {
   },
 
   renderScoreboard() {
-    const activeTab = this.elements.scoreboardTabs.querySelector('.sb-tab.active');
-    const mode = activeTab ? parseInt(activeTab.dataset.mode) : 1;
-    const data = this._scoreboardData[mode] || [];
-
+    const mainTab = this._scoreboardMainTab;
+    let data = [];
     let formula = '';
-    if (mode === 1) formula = '常规模式：实际得分 + 排名加分';
-    else if (mode === 2) formula = '正58模式：10 + 5.8 × (实际得分 - 赛季均分)';
-    else if (mode === 3) formula = '负58模式：10 - 5.8 × (实际得分 - 赛季均分)';
+
+    if (mainTab === 'entertainment') {
+      // 娱乐模式：根据子Tab选择数据
+      const mode = this._scoreboardSubMode;
+      data = this._scoreboardData[mode] || [];
+      
+      if (mode === 1) formula = '常规模式：实际得分 + 排名加分';
+      else if (mode === 2) formula = '正58模式：10 + 5.8 × (实际得分 - 赛季均分)';
+      else if (mode === 3) formula = '负58模式：10 - 5.8 × (实际得分 - 赛季均分)';
+    } else {
+      // 经理模式：显示经理模式数据
+      data = this._scoreboardManagerData || [];
+      formula = '经理模式：每日首发球员总得分';
+    }
+
     this.elements.scoreboardFormula.textContent = formula;
 
     if (!data.length) {
-      this.elements.scoreboardList.innerHTML = '<div class="no-players">暂无选择</div>';
+      const emptyText = mainTab === 'entertainment' ? '暂无选择' : '暂无经理模式数据';
+      this.elements.scoreboardList.innerHTML = `<div class="no-players">${emptyText}</div>`;
       return;
     }
 
@@ -1573,22 +1713,25 @@ const App = {
       const avgText = row.season_avg ? ` (均 ${Utils.formatScore(row.season_avg)})` : '';
 
       let calcDetail = '';
-      if (row.total_score !== null) {
+      if (mainTab === 'entertainment' && row.total_score !== null) {
+        const mode = this._scoreboardSubMode;
         if (mode === 1) calcDetail = `${row.base_score}原始 + ${row.bonus_score}奖惩`;
         else {
           const sign = mode === 2 ? '+' : '-';
           calcDetail = `10 ${sign} 5.8 × (${row.actual_score} - ${row.season_avg})`;
         }
+      } else if (mainTab === 'manager') {
+        calcDetail = `首发球员总得分：${row.total_score || 0}分`;
       }
 
       html += `
-        <div class="sc-card">
+        <div class="sc-card ${mainTab === 'manager' ? 'manager-card' : ''}">
           <div class="sc-header">
             <span class="sc-user">${row.user_name}</span>
             <span class="sc-total ${row.total_score !== null && row.total_score >= 0 ? 'positive' : 'negative'}">${scoreNum}</span>
           </div>
           <div class="sc-body">
-            <div class="sc-player">选择: ${row.player_name}${avgText}</div>
+            <div class="sc-player">${mainTab === 'manager' ? '首发阵容' : '选择: ' + row.player_name}${avgText}</div>
             <div class="sc-actual">${actualText}</div>
           </div>
           ${calcDetail ? `<div class="sc-calc">${calcDetail}</div>` : ''}
@@ -1603,11 +1746,20 @@ const App = {
       const data = await API.getAllUsers(100);
 
       if (data && data.length) {
+        // Sort by bonus (descending), with totalScore as fallback
+        const sorted = data.sort((a, b) => {
+          const aBonus = a.bonus ?? a.total_bonus ?? a.bonus_score ?? a.totalScore ?? 0;
+          const bBonus = b.bonus ?? b.total_bonus ?? b.bonus_score ?? b.totalScore ?? 0;
+          return bBonus - aBonus;
+        });
+
         let html = '';
-        data.forEach((user, index) => {
+        sorted.forEach((user, index) => {
           const rank = index + 1;
           const isCurrentUser = user.id === this.state.user.id;
           const rankClass = rank <= 3 ? `top-${rank}` : 'normal';
+          const score = user.totalScore || 0;
+          const bonus = user.bonus ?? user.total_bonus ?? user.bonus_score ?? user.totalScore ?? 0;
 
           html += `
             <div class="leaderboard-item ${isCurrentUser ? 'current-user' : ''}" data-user-id="${user.id}" data-user-name="${user.nickname || '球迷'}">
@@ -1616,7 +1768,10 @@ const App = {
               <div class="leaderboard-info">
                 <div class="leaderboard-name">${user.nickname || '球迷'}</div>
               </div>
-              <div class="leaderboard-score">${Utils.formatScore(user.totalScore || 0)}</div>
+              <div class="leaderboard-scores">
+                <div class="score-item"><span class="label">积分</span><span class="value">${Utils.formatScore(score)}</span></div>
+                <div class="score-item highlight"><span class="label">Bonus</span><span class="value">${Utils.formatScore(bonus)}</span></div>
+              </div>
             </div>
           `;
         });

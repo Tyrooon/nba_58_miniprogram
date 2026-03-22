@@ -46,8 +46,13 @@
 
     <view class="stats-row">
       <view class="stat-item">
-        <view class="stat-label">当前积分</view>
+        <view class="stat-label">积分</view>
         <view class="stat-value">{{displayScore}}</view>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-item">
+        <view class="stat-label">Bonus</view>
+        <view class="stat-value">{{displayBonus}}</view>
       </view>
       <view class="stat-divider"></view>
       <view class="stat-item">

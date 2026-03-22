@@ -1235,10 +1235,34 @@ body {
   color: var(--text-primary);
 }
 
-.leaderboard-score {
-  font-size: 18px;
+.leaderboard-scores {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.leaderboard-scores .score-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.leaderboard-scores .score-item .label {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.leaderboard-scores .score-item .value {
+  font-size: 14px;
   font-weight: 700;
   color: var(--primary-color);
+}
+
+.leaderboard-scores .score-item.highlight .value {
+  color: var(--warning-color);
+  font-weight: 800;
 }
 
 /* Modal base */
@@ -2324,4 +2348,82 @@ body {
 .manager-empty-text {
   font-size: 14px;
   line-height: 1.6;
+}
+
+/* 娱乐模式分组样式 */
+.mode-group {
+  margin-bottom: 12px;
+}
+
+.mode-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.mode-group-header:hover {
+  background: #e9ecef;
+}
+
+.mode-group-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.mode-group-icon {
+  font-size: 24px;
+}
+
+.expand-icon {
+  font-size: 12px;
+  color: #6b7280;
+  transition: transform 0.3s;
+}
+
+.expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.mode-sub-list {
+  margin-top: 8px;
+  padding-left: 0;
+  display: none;
+}
+
+.mode-sub-list.show {
+  display: block;
+}
+
+.mode-sub-list .mode-item {
+  margin-left: 0;
+}
+
+.manager-mode-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  margin-top: 12px;
+}
+
+.manager-mode-card .mode-icon {
+  background: rgba(255,255,255,0.2);
+}
+
+.manager-mode-card .mode-name {
+  color: white;
+}
+
+.manager-mode-card .mode-desc {
+  color: rgba(255,255,255,0.8);
+}
+
+.manager-mode-card .mode-desc-selection {
+  color: rgba(255,255,255,0.8);
 }

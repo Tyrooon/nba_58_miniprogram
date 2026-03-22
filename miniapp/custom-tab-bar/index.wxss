@@ -277,4 +277,45 @@
   color: #6B7280;
 }
 
+/* Entertainment Mode Group */
+.mode-group {
+  margin-bottom: 12px;
+}
+
+.mode-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #F3F4F6;
+  border-radius: 12px;
+}
+
+.mode-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1F2937;
+}
+
+.mode-group-icon {
+  font-size: 18px;
+}
+
+.expand-icon {
+  font-size: 12px;
+  color: #6B7280;
+  transition: transform 0.2s;
+}
+
+.expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.mode-sub-list {
+  margin-top: 8px;
+  padding-left: 8px;
+}
 

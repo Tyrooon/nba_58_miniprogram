@@ -10,7 +10,8 @@
     <view class="tab-item {{activeTab === 'roster' ? 'active' : ''}}" bindtap="switchTab" data-tab="roster">阵容</view>
     <view class="tab-item {{activeTab === 'starters' ? 'active' : ''}}" bindtap="switchTab" data-tab="starters">首发</view>
     <view class="tab-item {{activeTab === 'trades' ? 'active' : ''}}" bindtap="switchTab" data-tab="trades">交易</view>
-    <view class="tab-item {{activeTab === 'draft' ? 'active' : ''}}" bindtap="switchTab" data-tab="draft">选秀</view>
+    <!-- 选秀Tab暂时冻结 -->
+    <!-- <view class="tab-item {{activeTab === 'draft' ? 'active' : ''}}" bindtap="switchTab" data-tab="draft">选秀</view> -->
   </view>
 
   <view class="content" wx:if="{{!loading}}">
@@ -110,8 +111,8 @@
       </view>
     </view>
 
-    <!-- 选秀Tab -->
-    <view wx:if="{{activeTab === 'draft'}}">
+    <!-- 选秀Tab - 暂时冻结 -->
+    <!-- <view wx:if="{{activeTab === 'draft'}}">
       <view class="section">
         <view class="section-header">
           <view class="section-title">选秀顺序</view>
@@ -127,7 +128,7 @@
           <text>选秀顺序加载中...</text>
         </view>
       </view>
-    </view>
+    </view> -->
 
     <!-- 周得分展示（在阵容tab下方） -->
     <view class="section" wx:if="{{activeTab === 'roster'}}">
@@ -153,8 +154,8 @@
     <text>加载中...</text>
   </view>
 
-  <!-- 重选秀弹窗 -->
-  <view class="modal-mask" wx:if="{{showReshuffleModal}}" bindtap="closeModal">
+  <!-- 重选秀弹窗 - 暂时冻结 -->
+  <!-- <view class="modal-mask" wx:if="{{showReshuffleModal}}" bindtap="closeModal">
     <view class="modal-content" catchtap="true">
       <view class="modal-header">
         <text class="modal-title">重选秀</text>
@@ -180,5 +181,5 @@
         <text class="btn confirm" bindtap="executeReshuffle">确定</text>
       </view>
     </view>
-  </view>
+  </view> -->
 </view>

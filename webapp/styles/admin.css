@@ -130,6 +130,7 @@
 .sidebar-title {
   font-size: 18px;
   font-weight: 700;
+  color: white;
 }
 
 .sidebar-menu {
@@ -156,10 +157,12 @@
 
 .sidebar-menu .menu-icon {
   font-size: 18px;
+  color: white;
 }
 
 .sidebar-menu .menu-text {
   font-size: 14px;
+  color: white;
 }
 
 .sidebar-footer {

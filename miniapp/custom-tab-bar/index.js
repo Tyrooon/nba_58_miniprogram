@@ -30,7 +30,8 @@ Component({
     dateOptions: [],
     selectedDate: dayjs().format('YYYY-MM-DD'),
     selectedDateLabel: '',
-    loadingDates: false
+    loadingDates: false,
+    entertainmentExpanded: false
   },
   lifetimes: {
     attached() {
@@ -235,6 +236,11 @@ Component({
       if (currentPage && typeof currentPage.handleModeChange === 'function') {
         currentPage.handleModeChange(modeId);
       }
+    },
+    toggleEntertainmentMode() {
+      this.setData({
+        entertainmentExpanded: !this.data.entertainmentExpanded
+      });
     }
   }
 })

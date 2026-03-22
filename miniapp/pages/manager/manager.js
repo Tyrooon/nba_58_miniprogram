@@ -81,9 +81,11 @@ Page({
 
     if (tab === 'trades') {
       this.loadTrades();
-    } else if (tab === 'draft') {
-      this.loadDraftOrder();
     }
+    // 选秀Tab暂时冻结
+    // else if (tab === 'draft') {
+    //   this.loadDraftOrder();
+    // }
   },
 
   // 加载交易列表

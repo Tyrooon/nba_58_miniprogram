@@ -34,11 +34,18 @@ Page({
     this.setData({ loading: true });
     try {
       const list = await request({ url: '/users/all', data: { limit: 100 } });
-      // 格式化分数显示
-      const leaderboard = (list || []).map((item, index) => ({
+      // Sort by bonus (descending), with totalScore as fallback
+      const sorted = (list || []).sort((a, b) => {
+        const aBonus = a.bonus ?? a.totalScore ?? 0;
+        const bBonus = b.bonus ?? b.totalScore ?? 0;
+        return bBonus - aBonus;
+      });
+      // Format and add display fields for sorted
+      const leaderboard = sorted.map((item, index) => ({
         ...item,
         rank: index + 1,
-        displayScore: this.formatScore(item.totalScore)
+        displayScore: this.formatScore(item.totalScore ?? 0),
+        displayBonus: this.formatScore(item.bonus ?? item.totalScore ?? 0)
       }));
       this.setData({ leaderboard });
     } catch (error) {

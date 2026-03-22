@@ -97,46 +97,61 @@
         </div>
       </div>
 
-      <div class="mode-item" data-mode="regular">
-        <div class="mode-icon">🏀</div>
-        <div class="mode-info">
-          <div class="mode-name">常规模式</div>
-          <div class="mode-desc">
-            <span>标准玩法</span>
-            <span class="mode-desc-selection" id="regularSelection">未选择</span>
+      <!-- 娱乐模式分组 -->
+      <div class="mode-group">
+        <div class="mode-group-header" id="entertainmentGroupHeader">
+          <div class="mode-group-title">
+            <div class="mode-group-icon">🎮</div>
+            <span>娱乐模式</span>
+          </div>
+          <span class="expand-icon" id="entertainmentExpandIcon">▼</span>
+        </div>
+
+        <!-- 展开的子模式 -->
+        <div class="mode-sub-list" id="entertainmentSubList">
+          <div class="mode-item" data-mode="regular">
+            <div class="mode-icon">🏀</div>
+            <div class="mode-info">
+              <div class="mode-name">常规模式</div>
+              <div class="mode-desc">
+                <span>标准玩法</span>
+                <span class="mode-desc-selection" id="regularSelection">未选择</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mode-item" data-mode="plus58">
+            <div class="mode-icon">📈</div>
+            <div class="mode-info">
+              <div class="mode-name">正58</div>
+              <div class="mode-desc">
+                <span>挑战最高分</span>
+                <span class="mode-desc-selection" id="plus58Selection">未选择</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mode-item" data-mode="minus58">
+            <div class="mode-icon">📉</div>
+            <div class="mode-info">
+              <div class="mode-name">负58</div>
+              <div class="mode-desc">
+                <span>挑战最低分</span>
+                <span class="mode-desc-selection" id="minus58Selection">未选择</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="mode-item" data-mode="plus58">
-        <div class="mode-icon">📈</div>
+      <!-- 经理模式 -->
+      <div class="mode-item manager-mode-card" data-mode="manager">
+        <div class="mode-icon">👔</div>
         <div class="mode-info">
-          <div class="mode-name">正58</div>
+          <div class="mode-name">经理模式</div>
           <div class="mode-desc">
-            <span>挑战最高分</span>
-            <span class="mode-desc-selection" id="plus58Selection">未选择</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="mode-item" data-mode="minus58">
-        <div class="mode-icon">📉</div>
-        <div class="mode-info">
-          <div class="mode-name">负58</div>
-          <div class="mode-desc">
-            <span>挑战最低分</span>
-            <span class="mode-desc-selection" id="minus58Selection">未选择</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="mode-item" data-mode="manager" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-        <div class="mode-icon" style="background: rgba(255,255,255,0.2);">👔</div>
-        <div class="mode-info">
-          <div class="mode-name" style="color: white;">经理模式</div>
-          <div class="mode-desc" style="color: rgba(255,255,255,0.8);">
             <span>阵容管理·选秀·交易</span>
-            <span class="mode-desc-selection" style="color: rgba(255,255,255,0.8);">进入模式</span>
+            <span class="mode-desc-selection">进入模式</span>
           </div>
         </div>
       </div>
@@ -170,8 +185,13 @@
 
         <div class="stats-row">
           <div class="stat-item">
-            <div class="stat-label">当前积分</div>
+            <div class="stat-label">积分</div>
             <div class="stat-value" id="userTotalScore">0</div>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <div class="stat-label">Bonus</div>
+            <div class="stat-value" id="userTotalBonus">0</div>
           </div>
           <div class="stat-divider"></div>
           <div class="stat-item">
@@ -213,6 +233,11 @@
         <button class="back-btn" id="historyBackBtn">←</button>
         <h1>历史战绩</h1>
       </header>
+      <!-- 模式切换Tab -->
+      <div class="history-tabs" id="historyTabs">
+        <div class="history-tab active" data-tab="entertainment">娱乐模式</div>
+        <div class="history-tab" data-tab="manager">经理模式</div>
+      </div>
       <div class="history-list" id="historyList">
         <div class="loading-container">
           <div class="spinner"></div>
@@ -242,6 +267,12 @@
       <div class="scoreboard-filters">
         <input type="date" id="scoreboardDateInput" class="scoreboard-date-picker">
       </div>
+      <!-- 主Tab：娱乐模式 | 经理模式 -->
+      <div class="scoreboard-main-tabs" id="scoreboardMainTabs">
+        <div class="sb-main-tab active" data-tab="entertainment">娱乐模式</div>
+        <div class="sb-main-tab" data-tab="manager">经理模式</div>
+      </div>
+      <!-- 娱乐模式子Tab -->
       <div class="scoreboard-tabs" id="scoreboardTabs">
         <div class="sb-tab active" data-mode="1">常规</div>
         <div class="sb-tab" data-mode="2">正58</div>

@@ -50,8 +50,14 @@
 
         <!-- Score -->
         <view class="score-section">
-          <text class="score-value">{{item.displayScore || '0.00'}}</text>
-          <text class="score-label">分</text>
+          <view class="score-row">
+            <text class="score-label">积分</text>
+            <text class="score-value">{{item.displayScore}}</text>
+          </view>
+          <view class="score-row">
+            <text class="score-label">Bonus</text>
+            <text class="score-value bonus">{{item.displayBonus}}</text>
+          </view>
         </view>
       </view>
     </block>

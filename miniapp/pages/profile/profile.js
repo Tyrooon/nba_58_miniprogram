@@ -25,6 +25,7 @@ Page({
     frozen: [],
     userRank: '--',
     displayScore: '0.00',
+    displayBonus: '0.00',
     // 关联账号相关
     showLinkModal: false,
     linkUsername: '',
@@ -39,7 +40,8 @@ Page({
     Promise.resolve(app.ensureLogin())
       .then((user) => {
         const displayScore = user && user.totalScore != null ? formatScore(user.totalScore) : '0.00';
-        this.setData({ user: user || null, frozen: [], userRank: '--', displayScore });
+        const displayBonus = user && user.bonus != null ? formatScore(user.bonus) : '0.00';
+        this.setData({ user: user || null, frozen: [], userRank: '--', displayScore, displayBonus });
         if (user) {
           this.loadFrozen();
           this.loadRank();
@@ -93,7 +95,13 @@ Page({
     try {
       if (!this.data.user) return;
       const leaderboard = await request({ url: '/users/leaderboard', method: 'GET' });
-      const myRank = leaderboard.findIndex(u => u.id === this.data.user.id);
+      // Sort by bonus (descending), with totalScore as fallback
+      const sorted = (leaderboard || []).sort((a, b) => {
+        const aBonus = a.bonus ?? a.totalScore ?? 0;
+        const bBonus = b.bonus ?? b.totalScore ?? 0;
+        return bBonus - aBonus;
+      });
+      const myRank = sorted.findIndex(u => u.id === this.data.user.id);
       this.setData({ userRank: myRank >= 0 ? myRank + 1 : '--' });
     } catch (error) {
       console.error(error);
