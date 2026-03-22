@@ -479,10 +479,11 @@
 }
 
 .roster-player-card {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
   padding: 12px;
+  padding-bottom: 32px;
   background: #F9FAFB;
   border-radius: 8px;
   border: 1px solid var(--border-color);
@@ -508,8 +509,16 @@
 }
 
 .player-actions {
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
   display: flex;
   gap: 4px;
+}
+
+.player-actions .action-btn {
+  padding: 2px 6px;
+  font-size: 10px;
 }
 
 .hint-text {
