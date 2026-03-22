@@ -35,10 +35,7 @@ const insertTotals = db.prepare(`
     season, player_id, player_name, team_id, team_name,
     games_played, total_points, avg_points, last_game_date, updated_at
   )
-  VALUES (
-    @season, @player_id, @player_name, @team_id, @team_name,
-    1, @points, @points, @game_date, datetime('now')
-  )
+  VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, datetime('now'))
   ON CONFLICT(season, player_id) DO UPDATE SET
     games_played = player_season_totals.games_played + 1,
     total_points = player_season_totals.total_points + excluded.total_points,
@@ -52,7 +49,7 @@ const insertTotals = db.prepare(`
 
 const insertLog = db.prepare(`
   INSERT INTO season_aggregate_log (game_date, processed_at)
-  VALUES (@game_date, datetime('now'))
+  VALUES (?, datetime('now'))
 `);
 
 export const aggregateSeasonStatsForDate = async (dateKey: string) => {
@@ -76,17 +73,18 @@ export const aggregateSeasonStatsForDate = async (dateKey: string) => {
   await db.exec('BEGIN TRANSACTION');
   try {
     for (const player of players) {
-      await insertTotals.run({
-        season: config.currentSeason,
-        player_id: player.player_id,
-        player_name: player.player_name,
-        team_id: player.team_id,
-        team_name: player.team_name,
-        points: Number(player.stats_points ?? 0),
-        game_date: dateKey
-      } as any);
+      await insertTotals.run([
+        config.currentSeason,
+        player.player_id,
+        player.player_name,
+        player.team_id,
+        player.team_name,
+        Number(player.stats_points ?? 0),
+        Number(player.stats_points ?? 0),
+        dateKey
+      ]);
     }
-    await insertLog.run({ game_date: dateKey } as any);
+    await insertLog.run([dateKey]);
     await db.exec('COMMIT');
   } catch (error) {
     await db.exec('ROLLBACK');
