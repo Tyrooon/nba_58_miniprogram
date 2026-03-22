@@ -434,8 +434,9 @@ const App = {
     this.showLoading();
 
     try {
-      const start = this.addDays(focusDate, -3);
-      const end = this.addDays(focusDate, 3);
+      // 默认加载3天：t-1 + t + t+1
+      const start = this.addDays(focusDate, -1);
+      const end = this.addDays(focusDate, 1);
 
       await this.fetchGameRange(start, end, 'initial');
 
