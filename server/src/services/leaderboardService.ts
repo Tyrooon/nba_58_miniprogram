@@ -4,8 +4,8 @@ import { toDateKey } from '../utils/date';
 export const getOverallLeaderboard = (limit = 50) =>
   db
     .prepare(
-      `SELECT id as userId, nickname, avatar_url as avatarUrl, total_score as score
-       FROM users ORDER BY total_score DESC LIMIT ?`
+      `SELECT id as userId, nickname, avatar_url as avatarUrl, total_score as score, total_bonus as bonus
+       FROM users ORDER BY total_bonus DESC, total_score DESC LIMIT ?`
     )
     .all([limit]);
 

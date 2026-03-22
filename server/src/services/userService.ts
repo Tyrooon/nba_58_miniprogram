@@ -129,6 +129,7 @@ export const updateUserProfile = async (userId: number, nickname?: string, avata
     nickname: newNickname,
     avatar_url: newAvatarUrl,
     total_score: existing.total_score,
+    total_bonus: existing.total_bonus,
   };
 };
 
@@ -223,6 +224,7 @@ export const linkAccount = async (wxUserId: number, username: string, password: 
     avatar_url: linkedUser.avatar_url,
     username: linkedUser.username,
     total_score: linkedUser.total_score,
+    total_bonus: linkedUser.total_bonus,
   };
 };
 
@@ -272,6 +274,7 @@ export const linkWebAccountToOpenid = async (openid: string, username: string, p
     avatar_url: linkedUser.avatar_url,
     username: linkedUser.username,
     total_score: linkedUser.total_score,
+    total_bonus: linkedUser.total_bonus,
   };
 };
 
@@ -329,10 +332,10 @@ export const purgeExpiredFrozen = async () => {
  */
 export const getLeaderboard = async (limit: number = 100) => {
   const users = await db.prepare(`
-    SELECT id, nickname, avatar_url, total_score
+    SELECT id, nickname, avatar_url, total_score, total_bonus
     FROM users
-    WHERE total_score > 0
-    ORDER BY total_score DESC
+    WHERE total_score > 0 OR total_bonus > 0
+    ORDER BY total_bonus DESC, total_score DESC
     LIMIT ?
   `).all([limit]) as unknown as any[];
 
@@ -342,6 +345,7 @@ export const getLeaderboard = async (limit: number = 100) => {
     nickname: user.nickname || `球迷${user.id}`,
     avatarUrl: user.avatar_url,
     totalScore: user.total_score || 0,
+    totalBonus: user.total_bonus || 0,
   }));
 };
 

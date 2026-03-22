@@ -86,6 +86,7 @@ router.post('/login', async (req, res) => {
       nickname: user.nickname,
       avatarUrl: user.avatar_url,
       totalScore: user.total_score,
+      totalBonus: user.total_bonus,
       username: user.username,
     });
   } catch (error: any) {
@@ -121,6 +122,7 @@ router.post('/link-account', async (req, res) => {
       avatarUrl: linkedUser.avatar_url,
       username: linkedUser.username,
       totalScore: linkedUser.total_score,
+      totalBonus: linkedUser.total_bonus,
     });
   } catch (error: any) {
     console.error('关联账号失败:', error);
@@ -148,6 +150,7 @@ router.post('/:userId/link-account', async (req, res) => {
       avatarUrl: linkedUser.avatar_url,
       username: linkedUser.username,
       totalScore: linkedUser.total_score,
+      totalBonus: linkedUser.total_bonus,
     });
   } catch (error: any) {
     console.error('关联账号失败:', error);
@@ -185,6 +188,7 @@ router.get('/:userId', async (req, res) => {
     nickname: user.nickname,
     avatarUrl: user.avatar_url,
     totalScore: user.total_score,
+    totalBonus: user.total_bonus,
     username: user.username,
     createdAt: user.created_at,
   });
@@ -201,6 +205,7 @@ router.put('/:userId/profile', async (req, res) => {
       nickname: updatedUser.nickname,
       avatarUrl: updatedUser.avatar_url,
       totalScore: updatedUser.total_score,
+      totalBonus: updatedUser.total_bonus,
     });
   } catch (error: any) {
     res.status(400).json({ message: error.message || '更新失败' });
@@ -231,6 +236,7 @@ router.post('/:userId/avatar', (req, res, next) => {
         nickname: updatedUser.nickname,
         avatarUrl: updatedUser.avatar_url,
         totalScore: updatedUser.total_score,
+        totalBonus: updatedUser.total_bonus,
       });
     } catch (error: any) {
       res.status(400).json({ message: error.message || '上传失败' });
