@@ -681,6 +681,21 @@ Page({
     this.setData({ modeCardCollapsed: !this.data.modeCardCollapsed });
   },
 
+  onTeamSlideChange(e) {
+    const gameId = e.currentTarget.dataset.gameId;
+    const current = e.detail.current;
+    const gameList = this.data.gameList.map(dayGroup => ({
+      ...dayGroup,
+      games: dayGroup.games.map(game => {
+        if (game.external_id === gameId) {
+          return { ...game, currentTeamSlide: current };
+        }
+        return game;
+      })
+    }));
+    this.setData({ gameList });
+  },
+
   handleSelectPlayer(e) {
     const player = e.currentTarget.dataset.player;
     const date = e.currentTarget.dataset.date;
