@@ -1043,6 +1043,13 @@ const App = {
 
   // Actions
   async handleSyncSchedule() {
+    // Check if user is admin
+    const user = this.state.user;
+    if (!user || !user.is_admin) {
+      this.showToast('需要管理员权限');
+      return;
+    }
+
     this.showToast('正在更新赛程...');
 
     try {

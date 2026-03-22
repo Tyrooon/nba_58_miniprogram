@@ -402,4 +402,65 @@ router.get('/manager/weekly-scores', requireAdmin, async (req, res, next) => {
   }
 });
 
+// ==================== Data Status Check ====================
+
+// Check data status for recent days
+router.get('/data-status', requireAdmin, async (req, res, next) => {
+  try {
+    const days = parseInt(req.query.days as string) || 7;
+    const results = [];
+
+    for (let i = 0; i < days; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateKey = date.toISOString().split('T')[0];
+
+      // Check games count
+      const gamesCount = await db.prepare(`
+        SELECT COUNT(*) as count FROM games WHERE game_date = ?
+      `).get([dateKey]) as any;
+
+      // Check daily players count
+      const playersCount = await db.prepare(`
+        SELECT COUNT(*) as count FROM daily_players WHERE game_date = ?
+      `).get([dateKey]) as any;
+
+      // Check players with actual scores (played)
+      const playedCount = await db.prepare(`
+        SELECT COUNT(*) as count FROM daily_players
+        WHERE game_date = ? AND stats_status = 'played'
+      `).get([dateKey]) as any;
+
+      // Check selections count
+      const selectionsCount = await db.prepare(`
+        SELECT COUNT(*) as count FROM selections WHERE game_date = ?
+      `).get([dateKey]) as any;
+
+      // Check game statuses
+      const gameStatuses = await db.prepare(`
+        SELECT status, COUNT(*) as count FROM games WHERE game_date = ? GROUP BY status
+      `).all([dateKey]) as any[];
+
+      // Check last sync time from sb_fetch_log
+      const syncLog = await db.prepare(`
+        SELECT fetched_at FROM sb_fetch_log WHERE date_key = ?
+      `).get([dateKey]) as any;
+
+      results.push({
+        date: dateKey,
+        games: gamesCount?.count || 0,
+        players: playersCount?.count || 0,
+        playersPlayed: playedCount?.count || 0,
+        selections: selectionsCount?.count || 0,
+        gameStatuses: gameStatuses || [],
+        lastSync: syncLog?.fetched_at || null
+      });
+    }
+
+    res.json({ success: true, data: results });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
 export default router;

@@ -82,6 +82,7 @@ const AdminApp = {
     document.getElementById('syncScheduleBtn').addEventListener('click', () => this.syncSchedule());
     document.getElementById('syncDailyBtn').addEventListener('click', () => this.syncDaily());
     document.getElementById('computeScoresBtn').addEventListener('click', () => this.computeScores());
+    document.getElementById('checkDataStatusBtn').addEventListener('click', () => this.checkDataStatus());
 
     // Set default dates
     const today = new Date().toISOString().split('T')[0];
@@ -920,6 +921,110 @@ const AdminApp = {
       this.toast('得分计算完成', 'success');
     } catch (error) {
       this.log(`得分计算失败: ${error.message}`, 'error');
+      this.toast('计算失败', 'error');
+    }
+  },
+
+  async checkDataStatus() {
+    const days = parseInt(document.getElementById('dataStatusDays').value) || 7;
+    this.log(`检查近 ${days} 天的数据状态...`, 'info');
+
+    try {
+      const result = await this.apiRequest(`/admin/data-status?days=${days}`);
+      const data = result.data || [];
+      this.renderDataStatus(data);
+      this.log(`数据状态检查完成`, 'success');
+    } catch (error) {
+      this.log(`检查失败: ${error.message}`, 'error');
+      this.toast('检查失败', 'error');
+    }
+  },
+
+  renderDataStatus(data) {
+    const section = document.getElementById('dataStatusSection');
+    const tbody = document.getElementById('dataStatusTableBody');
+
+    if (!data || data.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = 'block';
+
+    tbody.innerHTML = data.map(row => {
+      // Format game statuses
+      let statusText = '-';
+      if (row.gameStatuses && row.gameStatuses.length > 0) {
+        statusText = row.gameStatuses.map(s => `${s.status}(${s.count})`).join(', ');
+      }
+
+      // Format last sync time
+      const lastSync = row.lastSync ? new Date(row.lastSync).toLocaleString('zh-CN') : '未同步';
+
+      // Determine row status class
+      const hasGames = row.games > 0;
+      const hasPlayedData = row.playersPlayed > 0;
+      const rowClass = !hasGames ? 'warning' : (hasGames && !hasPlayedData ? 'warning' : '');
+
+      // Check if needs sync (no games or no played data for past dates)
+      const today = new Date().toISOString().split('T')[0];
+      const isPast = row.date < today;
+      const needsSync = (isPast && row.games === 0) || (isPast && hasGames && !hasPlayedData);
+
+      return `
+        <tr class="${rowClass}">
+          <td><strong>${row.date}</strong></td>
+          <td>${row.games}</td>
+          <td>${row.players}</td>
+          <td>${row.playersPlayed}</td>
+          <td>${row.selections}</td>
+          <td>${statusText}</td>
+          <td>${lastSync}</td>
+          <td>
+            ${needsSync ? `
+              <button class="action-btn edit" onclick="AdminApp.syncDate('${row.date}')">同步</button>
+            ` : row.games > 0 ? `
+              <button class="action-btn edit" onclick="AdminApp.syncDate('${row.date}')">重新同步</button>
+              <button class="action-btn success" onclick="AdminApp.computeDate('${row.date}')">计算得分</button>
+            ` : `
+              <button class="action-btn edit" onclick="AdminApp.syncDate('${row.date}')">同步</button>
+            `}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  },
+
+  async syncDate(date) {
+    this.log(`开始同步 ${date} 的数据...`, 'info');
+    try {
+      const result = await this.apiRequest('/admin/sync', {
+        method: 'POST',
+        data: { date }
+      });
+      this.log(`${date} 数据同步完成: ${JSON.stringify(result)}`, 'success');
+      this.toast(`${date} 同步完成`, 'success');
+      // Refresh data status
+      await this.checkDataStatus();
+    } catch (error) {
+      this.log(`${date} 同步失败: ${error.message}`, 'error');
+      this.toast('同步失败', 'error');
+    }
+  },
+
+  async computeDate(date) {
+    this.log(`开始计算 ${date} 的得分...`, 'info');
+    try {
+      const result = await this.apiRequest('/admin/compute', {
+        method: 'POST',
+        data: { date }
+      });
+      this.log(`${date} 得分计算完成: ${JSON.stringify(result)}`, 'success');
+      this.toast(`${date} 计算完成`, 'success');
+      // Refresh data status
+      await this.checkDataStatus();
+    } catch (error) {
+      this.log(`${date} 计算失败: ${error.message}`, 'error');
       this.toast('计算失败', 'error');
     }
   },

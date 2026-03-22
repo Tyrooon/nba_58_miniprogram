@@ -131,94 +131,106 @@
                     <text>正在同步数据...</text>
                   </view>
 
-                  <view class="players-columns" wx:else>
-                    <block wx:if="{{game.hasPlayers}}">
-                      <view class="team-column visitor-column">
-                        <view class="team-column-header">
-                          <text class="team-column-name">{{game.visitor_team_name}}</text>
-                          <text class="team-column-sub">客队</text>
-                        </view>
-                        <view class="team-column-list player-grid">
-                          <block wx:if="{{game.visitorPlayersSorted.length}}">
-                            <block wx:for="{{game.visitorPlayersSorted}}" wx:key="player_id" wx:for-item="player">
-                              <view
-                                class="player-chip {{frozenPlayerIds.indexOf(player.player_id) > -1 ? 'disabled' : ''}}"
-                                data-player="{{player}}"
-                                data-date="{{dayGroup.date}}"
-                                bindtap="handleSelectPlayer"
-                              >
-                                <view class="player-info">
-                                  <view class="p-name">{{player.player_name}}</view>
-                                  <view class="p-team">{{player.team_name}}</view>
-                                  <view class="p-avg-inline">均 {{player.seasonAvgDisplay || '--'}}</view>
-                                </view>
-                                <view class="p-stat">
-                                  <block wx:if="{{game.status === 'In Progress' || game.status === 'Final'}}">
-                                    <block wx:if="{{player.stats_status === 'played'}}">
-                                      <text class="p-live-score {{player.stats_points >= 10 ? 'high' : ''}}">{{player.stats_points}}</text>
-                                      <text class="p-live-sub">分</text>
+                  <!-- 球员显示：左滑切换 -->
+                  <view class="players-swiper-container" wx:else>
+                    <swiper 
+                      class="team-swiper"
+                      indicator-dots="{{true}}"
+                      autoplay="{{false}}"
+                      current="{{game.currentTeamSlide || 0}}"
+                      bindchange="onTeamSlideChange"
+                      data-game-id="{{game.external_id}}"
+                    >
+                      <!-- 客队球员 -->
+                      <swiper-item>
+                        <view class="team-column-single">
+                          <view class="team-column-header">
+                            <text class="team-column-name">{{game.visitor_team_name}}</text>
+                            <text class="team-column-sub">客队</text>
+                          </view>
+                          <view class="team-column-list-vertical">
+                            <block wx:if="{{game.visitorPlayersSorted.length}}">
+                              <block wx:for="{{game.visitorPlayersSorted}}" wx:key="player_id" wx:for-item="player">
+                                <view
+                                  class="player-chip-vertical {{frozenPlayerIds.indexOf(player.player_id) > -1 ? 'disabled' : ''}}"
+                                  data-player="{{player}}"
+                                  data-date="{{dayGroup.date}}"
+                                  bindtap="handleSelectPlayer"
+                                >
+                                  <view class="player-info-vertical">
+                                    <view class="p-name-full">{{player.player_name}}</view>
+                                    <view class="p-meta-row">
+                                      <text class="p-team-small">{{player.team_name}}</text>
+                                      <text class="p-avg-small">均 {{player.seasonAvgDisplay || '--'}}</text>
+                                    </view>
+                                  </view>
+                                  <view class="p-stat">
+                                    <block wx:if="{{game.status === 'In Progress' || game.status === 'Final'}}">
+                                      <block wx:if="{{player.stats_status === 'played'}}">
+                                        <text class="p-live-score {{player.stats_points >= 10 ? 'high' : ''}}">{{player.stats_points}}</text>
+                                        <text class="p-live-sub">分</text>
+                                      </block>
+                                      <block wx:else>
+                                        <text class="p-dnp">未出场</text>
+                                      </block>
                                     </block>
                                     <block wx:else>
-                                      <text class="p-dnp">未出场</text>
+                                      <view class="p-avg">均 {{player.seasonAvgDisplay || '--'}}</view>
                                     </block>
-                                  </block>
-                                  <block wx:else>
-                                    <view class="p-avg">均 {{player.seasonAvgDisplay || '--'}}</view>
-                                  </block>
+                                  </view>
                                 </view>
-                              </view>
+                              </block>
                             </block>
-                          </block>
-                          <view wx:else class="no-players-mini">暂无数据</view>
+                            <view wx:else class="no-players-mini">暂无数据</view>
+                          </view>
                         </view>
-                      </view>
+                      </swiper-item>
 
-                      <view class="team-column home-column">
-                        <view class="team-column-header">
-                          <text class="team-column-name">{{game.home_team_name}}</text>
-                          <text class="team-column-sub">主队</text>
-                        </view>
-                        <view class="team-column-list player-grid">
-                          <block wx:if="{{game.homePlayersSorted.length}}">
-                            <block wx:for="{{game.homePlayersSorted}}" wx:key="player_id" wx:for-item="player">
-                              <view
-                                class="player-chip {{frozenPlayerIds.indexOf(player.player_id) > -1 ? 'disabled' : ''}}"
-                                data-player="{{player}}"
-                                data-date="{{dayGroup.date}}"
-                                bindtap="handleSelectPlayer"
-                              >
-                                <view class="player-info">
-                                  <view class="p-name">{{player.player_name}}</view>
-                                  <view class="p-team">{{player.team_name}}</view>
-                                  <view class="p-avg-inline">均 {{player.seasonAvgDisplay || '--'}}</view>
-                                </view>
-                                <view class="p-stat">
-                                  <block wx:if="{{game.status === 'In Progress' || game.status === 'Final'}}">
-                                    <block wx:if="{{player.stats_status === 'played'}}">
-                                      <text class="p-live-score {{player.stats_points >= 10 ? 'high' : ''}}">{{player.stats_points}}</text>
-                                      <text class="p-live-sub">分</text>
+                      <!-- 主队球员 -->
+                      <swiper-item>
+                        <view class="team-column-single">
+                          <view class="team-column-header">
+                            <text class="team-column-name">{{game.home_team_name}}</text>
+                            <text class="team-column-sub">主队</text>
+                          </view>
+                          <view class="team-column-list-vertical">
+                            <block wx:if="{{game.homePlayersSorted.length}}">
+                              <block wx:for="{{game.homePlayersSorted}}" wx:key="player_id" wx:for-item="player">
+                                <view
+                                  class="player-chip-vertical {{frozenPlayerIds.indexOf(player.player_id) > -1 ? 'disabled' : ''}}"
+                                  data-player="{{player}}"
+                                  data-date="{{dayGroup.date}}"
+                                  bindtap="handleSelectPlayer"
+                                >
+                                  <view class="player-info-vertical">
+                                    <view class="p-name-full">{{player.player_name}}</view>
+                                    <view class="p-meta-row">
+                                      <text class="p-team-small">{{player.team_name}}</text>
+                                      <text class="p-avg-small">均 {{player.seasonAvgDisplay || '--'}}</text>
+                                    </view>
+                                  </view>
+                                  <view class="p-stat">
+                                    <block wx:if="{{game.status === 'In Progress' || game.status === 'Final'}}">
+                                      <block wx:if="{{player.stats_status === 'played'}}">
+                                        <text class="p-live-score {{player.stats_points >= 10 ? 'high' : ''}}">{{player.stats_points}}</text>
+                                        <text class="p-live-sub">分</text>
+                                      </block>
+                                      <block wx:else>
+                                        <text class="p-dnp">未出场</text>
+                                      </block>
                                     </block>
                                     <block wx:else>
-                                      <text class="p-dnp">未出场</text>
+                                      <view class="p-avg">均 {{player.seasonAvgDisplay || '--'}}</view>
                                     </block>
-                                  </block>
-                                  <block wx:else>
-                                    <view class="p-avg">均 {{player.seasonAvgDisplay || '--'}}</view>
-                                  </block>
+                                  </view>
                                 </view>
-                              </view>
+                              </block>
                             </block>
-                          </block>
-                          <view wx:else class="no-players-mini">暂无数据</view>
+                            <view wx:else class="no-players-mini">暂无数据</view>
+                          </view>
                         </view>
-                      </view>
-                    </block>
-
-                    <!-- No Players State -->
-                    <view wx:else class="no-players">
-                      <view>暂无数据</view>
-                      <button size="mini" bindtap="handleSyncDay" data-date="{{dayGroup.date}}" class="mini-sync-btn">刷新数据</button>
-                    </view>
+                      </swiper-item>
+                    </swiper>
                   </view>
                 </view>
               </view>

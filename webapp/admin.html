@@ -176,7 +176,42 @@
               <input type="date" id="computeDateInput" class="date-input">
               <button class="primary-btn" id="computeScoresBtn">计算得分</button>
             </div>
+            <div class="sync-card">
+              <div class="sync-icon">🔍</div>
+              <h3>数据状态检查</h3>
+              <p>检查近期比赛和得分数据是否已更新</p>
+              <div class="inline-form">
+                <span>近</span>
+                <input type="number" id="dataStatusDays" value="7" min="1" max="30" class="num-input">
+                <span>天</span>
+              </div>
+              <button class="primary-btn" id="checkDataStatusBtn">检查状态</button>
+            </div>
           </div>
+
+          <!-- Data Status Results -->
+          <div class="data-status-section" id="dataStatusSection" style="display: none;">
+            <h4>数据状态报告</h4>
+            <div class="data-status-table-wrapper">
+              <table class="data-table" id="dataStatusTable">
+                <thead>
+                  <tr>
+                    <th>日期</th>
+                    <th>比赛数</th>
+                    <th>球员数</th>
+                    <th>已出场</th>
+                    <th>选择记录</th>
+                    <th>比赛状态</th>
+                    <th>最后同步</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="dataStatusTableBody">
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div class="sync-log" id="syncLog">
             <h4>操作日志</h4>
             <div class="log-content" id="logContent"></div>

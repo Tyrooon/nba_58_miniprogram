@@ -60,6 +60,38 @@
   margin-top: 200rpx;
 }
 
+/* Tab切换样式 */
+.tab-switcher {
+  display: flex;
+  margin: 20rpx 0;
+  background: #f3f4f6;
+  border-radius: 16rpx;
+  padding: 8rpx;
+}
+
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  font-size: 28rpx;
+  color: #6b7280;
+  border-radius: 12rpx;
+  transition: all 0.3s;
+}
+
+.tab-item.active {
+  background: #fff;
+  color: #3b82f6;
+  font-weight: 600;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.08);
+}
+
+.loading {
+  text-align: center;
+  padding: 40rpx;
+  opacity: 0.6;
+}
+
 
 
 

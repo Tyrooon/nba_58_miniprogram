@@ -21,8 +21,26 @@
     </picker>
   </view>
 
-  <!-- Mode Tabs -->
-  <view class="scoreboard-tabs">
+  <!-- 主Tab切换：娱乐模式 | 经理模式 -->
+  <view class="main-tabs">
+    <view
+      class="main-tab {{currentTab === 'entertainment' ? 'active' : ''}}"
+      data-tab="entertainment"
+      bindtap="switchTab"
+    >
+      娱乐模式
+    </view>
+    <view
+      class="main-tab {{currentTab === 'manager' ? 'active' : ''}}"
+      data-tab="manager"
+      bindtap="switchTab"
+    >
+      经理模式
+    </view>
+  </view>
+
+  <!-- 娱乐模式子Tab -->
+  <view class="scoreboard-tabs" wx:if="{{currentTab === 'entertainment'}}">
     <view class="sb-tab {{scoreboardMode === 1 ? 'active' : ''}}" bindtap="switchMode" data-mode="1">常规</view>
     <view class="sb-tab {{scoreboardMode === 2 ? 'active' : ''}}" bindtap="switchMode" data-mode="2">正58</view>
     <view class="sb-tab {{scoreboardMode === 3 ? 'active' : ''}}" bindtap="switchMode" data-mode="3">负58</view>
@@ -40,21 +58,40 @@
   <!-- List -->
   <scroll-view class="scoreboard-list" scroll-y wx:if="{{!loading}}">
     <view wx:if="{{scoreboardData.length}}">
-      <view class="sc-card" wx:for="{{scoreboardData}}" wx:key="id">
-        <view class="sc-header">
-          <text class="sc-user">{{item.user_name}}</text>
-          <text class="sc-total {{item.total_score >= 0 ? 'positive' : 'negative'}}">{{item.displayScore}}</text>
+      <!-- 娱乐模式卡片 -->
+      <block wx:if="{{currentTab === 'entertainment'}}">
+        <view class="sc-card" wx:for="{{scoreboardData}}" wx:key="id">
+          <view class="sc-header">
+            <text class="sc-user">{{item.user_name}}</text>
+            <text class="sc-total {{item.total_score >= 0 ? 'positive' : 'negative'}}">{{item.displayScore}}</text>
+          </view>
+          <view class="sc-body">
+            <view class="sc-player">选择: {{item.player_name}}{{item.season_avg ? ' (均 ' + item.season_avg + ')' : ''}}</view>
+            <view class="sc-actual">{{item.actual_score !== null ? '实际 ' + item.actual_score + '分' : '未结算'}}</view>
+          </view>
+          <view wx:if="{{item.calcDetail}}" class="sc-calc">{{item.calcDetail}}</view>
         </view>
-        <view class="sc-body">
-          <view class="sc-player">选择: {{item.player_name}}{{item.season_avg ? ' (均 ' + item.season_avg + ')' : ''}}</view>
-          <view class="sc-actual">{{item.actual_score !== null ? '实际 ' + item.actual_score + '分' : '未结算'}}</view>
+      </block>
+
+      <!-- 经理模式卡片 -->
+      <block wx:if="{{currentTab === 'manager'}}">
+        <view class="sc-card manager-card" wx:for="{{scoreboardData}}" wx:key="id">
+          <view class="sc-header">
+            <text class="sc-user">{{item.user_name}}</text>
+            <text class="sc-total positive">{{item.displayScore}}</text>
+          </view>
+          <view class="sc-body">
+            <view class="sc-player">首发阵容</view>
+            <view class="sc-actual">{{item.calcDetail}}</view>
+          </view>
+          <!-- TODO: 显示具体首发球员列表 -->
         </view>
-        <view wx:if="{{item.calcDetail}}" class="sc-calc">{{item.calcDetail}}</view>
-      </view>
+      </block>
     </view>
+
     <view wx:else class="empty-state">
       <text class="empty-icon">📊</text>
-      <text class="empty-text">暂无选择</text>
+      <text class="empty-text">暂无数据</text>
     </view>
   </scroll-view>
 </view>

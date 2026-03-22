@@ -5,26 +5,60 @@
     <view class="nav-home" bindtap="goHome">🏠 首页</view>
   </view>
 
-  <view class="card" wx:for="{{records}}" wx:key="id">
-    <view class="row">
-      <text class="mode">{{modeMap[item.play_mode]}}</text>
-      <text class="score">{{item.total_score || '--'}} 分</text>
+  <!-- 模式切换Tab -->
+  <view class="tab-switcher">
+    <view
+      class="tab-item {{currentTab === 'entertainment' ? 'active' : ''}}"
+      data-tab="entertainment"
+      bindtap="switchTab"
+    >
+      娱乐模式
     </view>
-    <view class="player">{{item.player_name}}</view>
-    <view class="meta">
-      日期 {{item.game_date}} · 得分 {{item.player_actual_score || '--'}} · 均分 {{item.player_season_avg || '--'}}
+    <view
+      class="tab-item {{currentTab === 'manager' ? 'active' : ''}}"
+      data-tab="manager"
+      bindtap="switchTab"
+    >
+      经理模式
     </view>
   </view>
-  <view class="empty" wx:if="{{!records.length && !loading}}">
-    暂无选择记录
+
+  <!-- 娱乐模式记录 -->
+  <block wx:if="{{currentTab === 'entertainment'}}">
+    <view class="card" wx:for="{{entertainmentRecords}}" wx:key="id">
+      <view class="row">
+        <text class="mode">{{modeMap[item.play_mode]}}</text>
+        <text class="score">{{item.total_score || '--'}} 分</text>
+      </view>
+      <view class="player">{{item.player_name}}</view>
+      <view class="meta">
+        日期 {{item.game_date}} · 得分 {{item.player_actual_score || '--'}} · 均分 {{item.player_season_avg || '--'}}
+      </view>
+    </view>
+    <view class="empty" wx:if="{{!entertainmentRecords.length && !loading}}">
+      暂无娱乐模式战绩
+    </view>
+  </block>
+
+  <!-- 经理模式记录 -->
+  <block wx:if="{{currentTab === 'manager'}}">
+    <view class="card" wx:for="{{managerRecords}}" wx:key="id">
+      <view class="row">
+        <text class="mode">经理模式 · 第{{item.week_number || '--'}}周</text>
+        <text class="score">{{item.total_score || '--'}} 分</text>
+      </view>
+      <view class="player">首发阵容</view>
+      <view class="meta">
+        日期 {{item.game_date}} · 总得分 {{item.total_score || '--'}}
+      </view>
+      <!-- TODO: 显示首发球员列表 -->
+    </view>
+    <view class="empty" wx:if="{{!managerRecords.length && !loading}}">
+      暂无经理模式战绩
+    </view>
+  </block>
+
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中...</text>
   </view>
 </view>
-
-
-
-
-
-
-
-
-

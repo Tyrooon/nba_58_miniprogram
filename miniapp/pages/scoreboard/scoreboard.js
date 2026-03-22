@@ -6,9 +6,11 @@ Page({
     loading: false,
     scoreboardDate: dayjs().format('YYYY-MM-DD'),
     scoreboardDateText: '',
-    scoreboardMode: 1,
+    currentTab: 'entertainment', // 'entertainment' | 'manager'
+    scoreboardMode: 1, // 娱乐模式下的子模式：1=常规，2=正58，3=负58
     scoreboardData: [],
     scoreboardFormula: '常规模式：实际得分 + 排名加分',
+    showEntertainmentSubModes: false, // 是否展开娱乐模式子选项
   },
 
   onLoad() {
@@ -52,6 +54,18 @@ Page({
     this.loadDailyScoreboard();
   },
 
+  // 切换主Tab（娱乐模式/经理模式）
+  switchTab(e) {
+    const tab = e.currentTarget.dataset.tab;
+    this.setData({
+      currentTab: tab,
+      scoreboardData: []
+    });
+    this.updateFormula();
+    this.renderScoreboard();
+  },
+
+  // 切换娱乐模式下的子模式
   switchMode(e) {
     const mode = parseInt(e.currentTarget.dataset.mode);
     this.setData({
@@ -63,15 +77,22 @@ Page({
   },
 
   updateFormula() {
-    const mode = this.data.scoreboardMode;
+    const tab = this.data.currentTab;
     let formula = '';
-    if (mode === 1) {
-      formula = '常规模式：实际得分 + 排名加分';
-    } else if (mode === 2) {
-      formula = '正58模式：10 + 5.8 × (实际得分 - 赛季均分)';
-    } else if (mode === 3) {
-      formula = '负58模式：10 - 5.8 × (实际得分 - 赛季均分)';
+
+    if (tab === 'entertainment') {
+      const mode = this.data.scoreboardMode;
+      if (mode === 1) {
+        formula = '常规模式：实际得分 + 排名加分';
+      } else if (mode === 2) {
+        formula = '正58模式：10 + 5.8 × (实际得分 - 赛季均分)';
+      } else if (mode === 3) {
+        formula = '负58模式：10 - 5.8 × (实际得分 - 赛季均分)';
+      }
+    } else {
+      formula = '经理模式：每日首发球员总得分';
     }
+
     this.setData({ scoreboardFormula: formula });
   },
 
@@ -84,8 +105,9 @@ Page({
       });
 
       const modes = res?.modes || { 1: [], 2: [], 3: [] };
+      const managerData = res?.manager || [];
 
-      // 预处理数据
+      // 预处理娱乐模式数据
       [1, 2, 3].forEach(mode => {
         modes[mode] = (modes[mode] || []).map(row => {
           let calcDetail = '';
@@ -105,7 +127,18 @@ Page({
         });
       });
 
-      this._scoreboardData = modes;
+      // 预处理经理模式数据
+      const processedManagerData = managerData.map(row => ({
+        ...row,
+        displayScore: this.formatScore(row.total_score),
+        calcDetail: `首发球员总得分：${row.total_score || 0}分`
+      }));
+
+      this._scoreboardData = {
+        entertainment: modes,
+        manager: processedManagerData
+      };
+
       this.updateFormula();
       this.renderScoreboard();
     } catch (error) {
@@ -117,9 +150,16 @@ Page({
   },
 
   renderScoreboard() {
-    const mode = this.data.scoreboardMode;
-    const data = this._scoreboardData?.[mode] || [];
-    this.setData({ scoreboardData: data });
+    const tab = this.data.currentTab;
+
+    if (tab === 'entertainment') {
+      const mode = this.data.scoreboardMode;
+      const data = this._scoreboardData?.entertainment?.[mode] || [];
+      this.setData({ scoreboardData: data });
+    } else {
+      const data = this._scoreboardData?.manager || [];
+      this.setData({ scoreboardData: data });
+    }
   },
 
   formatScore(score) {

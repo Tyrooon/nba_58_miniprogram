@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = 'http://localhost:80/api';
 
 // 微信云托管配置
 // useCloudHosting=true 时用 callContainer，易出现 Invalid host 错误
@@ -7,7 +7,7 @@ const CLOUD_HOSTING_CONFIG = {
   env: 'nba-58-6g2gfl7c61fc6031',
   serviceName: 'nba-58-006',
   useCloudHosting: false,
-  usePublicDomain: true,
+  usePublicDomain: true,  // 本地测试设为 false
   publicDomain: 'https://nba-58.zeabur.app',
 };
 
