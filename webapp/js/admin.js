@@ -83,6 +83,10 @@ const AdminApp = {
     document.getElementById('syncDailyBtn').addEventListener('click', () => this.syncDaily());
     document.getElementById('computeScoresBtn').addEventListener('click', () => this.computeScores());
     document.getElementById('checkDataStatusBtn').addEventListener('click', () => this.checkDataStatus());
+    document.getElementById('managerScoringToggle').addEventListener('change', (e) => this.toggleManagerScoring(e.target.checked));
+
+    // Load settings when showing sync section
+    this.loadSettings();
 
     // Set default dates
     const today = new Date().toISOString().split('T')[0];

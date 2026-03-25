@@ -1865,6 +1865,43 @@ body {
   outline: none;
 }
 
+/* Main tabs for scoreboard (娱乐模式/经理模式) */
+.scoreboard-main-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--bg-white);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sb-main-tab {
+  flex: 1;
+  text-align: center;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: #F3F4F6;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sb-main-tab:hover {
+  background: #E5E7EB;
+}
+
+.sb-main-tab.active {
+  color: white;
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.sb-main-tab[data-tab="manager"].active {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
 .scoreboard-tabs {
   display: flex;
   background: var(--bg-white);

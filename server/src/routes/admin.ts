@@ -463,4 +463,41 @@ router.get('/data-status', requireAdmin, async (req, res, next) => {
   }
 });
 
+// ==================== Settings ====================
+
+// Get all settings
+router.get('/settings', requireAdmin, async (req, res, next) => {
+  try {
+    const settings = await db.prepare(`SELECT key, value FROM settings`).all([]) as unknown as any[];
+    const result: Record<string, string> = {};
+    (settings || []).forEach(s => {
+      result[s.key] = s.value;
+    });
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+// Update a setting
+router.put('/settings/:key', requireAdmin, async (req, res, next) => {
+  try {
+    const { key } = req.params;
+    const { value } = req.body;
+
+    if (value === undefined) {
+      return res.status(400).json({ success: false, error: 'value is required' });
+    }
+
+    await db.prepare(`
+      INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))
+      ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = datetime('now')
+    `).run([key, value, value]);
+
+    res.json({ success: true, message: '设置已更新' });
+  } catch (error: any) {
+    next(error);
+  }
+});
+
 export default router;
