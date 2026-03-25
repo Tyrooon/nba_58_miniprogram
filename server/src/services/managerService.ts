@@ -151,12 +151,13 @@ export const canMoveToInjured = async (playerId: string): Promise<{ eligible: bo
     return { eligible: false, missedGames: 0 };
   }
 
-  // Get the last 3 game dates for this team
+  // Get the last 3 game dates for this team (completed games only)
   const recentGames = await db.prepare(`
-    SELECT DISTINCT game_date
-    FROM daily_players
-    WHERE team_id = ? AND game_date <= date('now')
-    ORDER BY game_date DESC
+    SELECT DISTINCT dp.game_date
+    FROM daily_players dp
+    JOIN games g ON dp.game_date = g.game_date AND (dp.team_id = g.home_team_id OR dp.team_id = g.visitor_team_id)
+    WHERE dp.team_id = ? AND dp.game_date <= date('now') AND g.status = 'Final'
+    ORDER BY dp.game_date DESC
     LIMIT 3
   `).all([playerTeam.team_id]) as unknown as any[];
 
