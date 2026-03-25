@@ -136,7 +136,7 @@ export const calculateWeeklyPoints = async (userId: string, weekStart: string): 
 
 /**
  * Check if player can be moved to injured list
- * Player must not have played in last 3 games
+ * Player must not have played in last 3 games (no stats recorded)
  */
 export const canMoveToInjured = async (playerId: string): Promise<{ eligible: boolean; missedGames: number }> => {
   // Get the player's most recent team
@@ -164,7 +164,8 @@ export const canMoveToInjured = async (playerId: string): Promise<{ eligible: bo
     return { eligible: false, missedGames: 0 };
   }
 
-  // Check if player appeared in any of these games
+  // Check if player actually played (recorded any stats) in these games
+  // A player who was injured/DNP would have stats_status='played' but 0 points/rebounds/assists
   const gameDates = recentGames.map(g => g.game_date);
   const placeholders = gameDates.map(() => '?').join(',');
 
@@ -173,6 +174,7 @@ export const canMoveToInjured = async (playerId: string): Promise<{ eligible: bo
     FROM daily_players
     WHERE player_id = ? AND game_date IN (${placeholders})
     AND stats_status = 'played'
+    AND (stats_points > 0 OR stats_rebounds > 0 OR stats_assists > 0)
   `).all([playerId, ...gameDates]) as unknown as any[];
 
   const playedDates = playerGames.map(g => g.game_date);
