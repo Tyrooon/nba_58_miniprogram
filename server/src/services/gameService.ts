@@ -276,8 +276,8 @@ export const syncDailyData = async (targetDate?: string) => {
   }
 
   const insertPlayerStmt = db.prepare(`
-    INSERT INTO daily_players (game_date, team_id, team_name, player_id, player_name, position, season_avg, stats_points, stats_rebounds, stats_assists, stats_status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO daily_players (game_date, team_id, team_name, player_id, player_name, position, season_avg, stats_points, stats_rebounds, stats_assists, stats_status, is_played)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(game_date, player_id) DO UPDATE SET
       team_id = excluded.team_id,
       team_name = excluded.team_name,
@@ -286,7 +286,8 @@ export const syncDailyData = async (targetDate?: string) => {
       stats_points = excluded.stats_points,
       stats_rebounds = excluded.stats_rebounds,
       stats_assists = excluded.stats_assists,
-      stats_status = excluded.stats_status
+      stats_status = excluded.stats_status,
+      is_played = excluded.is_played
   `);
 
   // 检查哪些日期已有完整的球员数据（已 Final 的历史比赛）
@@ -332,6 +333,7 @@ export const syncDailyData = async (targetDate?: string) => {
 
     for (const player of homePlayers) {
       const boxscoreStats = boxscoreData?.get(player.playerName.toLowerCase());
+      const isPlayed = boxscoreStats ? 1 : 0;
       await insertPlayerStmt.run([
         game.gameDate,
         game.homeTeamId,
@@ -344,12 +346,14 @@ export const syncDailyData = async (targetDate?: string) => {
         boxscoreStats?.rebounds || 0,
         boxscoreStats?.assists || 0,
         game.status === 'Final' ? 'played' : 'scheduled',
+        isPlayed,
       ]);
       totalPlayers++;
     }
 
     for (const player of awayPlayers) {
       const boxscoreStats = boxscoreData?.get(player.playerName.toLowerCase());
+      const isPlayed = boxscoreStats ? 1 : 0;
       await insertPlayerStmt.run([
         game.gameDate,
         game.awayTeamId,
@@ -362,6 +366,7 @@ export const syncDailyData = async (targetDate?: string) => {
         boxscoreStats?.rebounds || 0,
         boxscoreStats?.assists || 0,
         game.status === 'Final' ? 'played' : 'scheduled',
+        isPlayed,
       ]);
       totalPlayers++;
     }
@@ -386,6 +391,7 @@ export const syncDailyData = async (targetDate?: string) => {
             p.rebounds,
             p.assists,
             'played',
+            1, // is_played = 1 for boxscore players
           ]);
           totalPlayers++;
         }
@@ -404,6 +410,7 @@ export const syncDailyData = async (targetDate?: string) => {
             p.rebounds,
             p.assists,
             'played',
+            1, // is_played = 1 for boxscore players
           ]);
           totalPlayers++;
         }
