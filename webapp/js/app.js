@@ -1143,6 +1143,7 @@ const App = {
     this.elements.leaderboardPage.style.display = 'none';
     this.elements.scoreboardPage.style.display = 'none';
     this.elements.managerPage.style.display = 'none';
+    this.elements.playoffPage.style.display = 'none';
 
     if (page === 'schedule') {
       this.elements.timelineScroll.style.display = 'block';
@@ -1730,7 +1731,7 @@ const App = {
 
     try {
       const userId = this.state.user?.id;
-      const res = await API.call(`/playoff/status?userId=${userId}`);
+      const res = await API.request(`/playoff/status?userId=${userId}`);
       this._playoffStatus = res?.data || null;
       this.renderPlayoffContent();
     } catch (error) {
@@ -1826,7 +1827,7 @@ const App = {
 
     try {
       const userId = this.state.user?.id;
-      const res = await API.call(`/playoff/matchup/${matchupId}?userId=${userId}`);
+      const res = await API.request(`/playoff/matchup/${matchupId}?userId=${userId}`);
       this._currentMatchup = res?.data || null;
       this._playoffTab = 'matchup';
       document.querySelectorAll('.playoff-tab').forEach(t => t.classList.remove('active'));
@@ -1917,7 +1918,7 @@ const App = {
 
     try {
       const userId = this.state.user?.id;
-      const res = await API.call(`/playoff/available-players?matchupId=${this._currentMatchup.id}&userId=${userId}&gameDate=${this._selectedGameDate}`);
+      const res = await API.request(`/playoff/available-players?matchupId=${this._currentMatchup.id}&userId=${userId}&gameDate=${this._selectedGameDate}`);
       this._availablePlayers = res?.data || [];
       this._selectedPlayerId = null;
       this._playoffTab = 'select';
@@ -1972,15 +1973,14 @@ const App = {
   async confirmPlayoffSelection() {
     const userId = this.state.user?.id;
     try {
-      await API.call('/playoff/select', {
+      await API.request('/playoff/select', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        data: {
           matchupId: this._currentMatchup.id,
           userId,
           playerId: this._selectedPlayerId,
           gameDate: this._selectedGameDate
-        })
+        }
       });
       this.showToast('选人成功');
       this.viewPlayoffMatchup(this._currentMatchup.id);
@@ -1994,14 +1994,13 @@ const App = {
     if (!confirm('确定要取消今天的选人吗？')) return;
     const userId = this.state.user?.id;
     try {
-      await API.call('/playoff/select', {
+      await API.request('/playoff/select', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        data: {
           matchupId: this._currentMatchup.id,
           userId,
           gameDate: this._selectedGameDate
-        })
+        }
       });
       this.showToast('已取消');
       this.viewPlayoffMatchup(this._currentMatchup.id);
@@ -2019,7 +2018,7 @@ const App = {
     }
 
     try {
-      const res = await API.call(`/playoff/frozen?userId=${userId}`);
+      const res = await API.request(`/playoff/frozen?userId=${userId}`);
       const frozen = res?.data || [];
 
       if (!frozen.length) {

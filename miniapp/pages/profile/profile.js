@@ -245,7 +245,7 @@ Page({
       const updatedUser = {
         id: result.id,
         nickname: result.nickname,
-        avatarUrl: formatAvatarUrl(result.avatarUrl),
+        avatarUrl: getFullAvatarUrl(result.avatarUrl),
         username: result.username,
         totalScore: result.totalScore,
       };

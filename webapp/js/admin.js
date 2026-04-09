@@ -83,7 +83,10 @@ const AdminApp = {
     document.getElementById('syncDailyBtn').addEventListener('click', () => this.syncDaily());
     document.getElementById('computeScoresBtn').addEventListener('click', () => this.computeScores());
     document.getElementById('checkDataStatusBtn').addEventListener('click', () => this.checkDataStatus());
-    document.getElementById('managerScoringToggle').addEventListener('change', (e) => this.toggleManagerScoring(e.target.checked));
+    const managerScoringToggle = document.getElementById('managerScoringToggle');
+    if (managerScoringToggle) {
+      managerScoringToggle.addEventListener('change', (e) => this.toggleManagerScoring(e.target.checked));
+    }
 
     // Database management
     document.getElementById('exportDbBtn').addEventListener('click', () => this.exportDatabase());

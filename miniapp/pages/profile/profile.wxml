@@ -86,6 +86,16 @@
       <view class="menu-text">每日得分看板</view>
       <view class="menu-arrow">></view>
     </view>
+    <view class="menu-item" data-url="/pages/manager/manager" bindtap="navigate" wx:if="{{user}}">
+      <view class="menu-icon" style="background: #EFF6FF; color: #3B82F6;">👔</view>
+      <view class="menu-text">经理模式</view>
+      <view class="menu-arrow">></view>
+    </view>
+    <view class="menu-item" data-url="/pages/playoff/playoff" bindtap="navigate" wx:if="{{user}}">
+      <view class="menu-icon" style="background: #F5F3FF; color: #7C3AED;">🏆</view>
+      <view class="menu-text">季后赛</view>
+      <view class="menu-arrow">></view>
+    </view>
   </view>
 
   <!-- Frozen Players Section -->
