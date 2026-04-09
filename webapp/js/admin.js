@@ -85,6 +85,11 @@ const AdminApp = {
     document.getElementById('checkDataStatusBtn').addEventListener('click', () => this.checkDataStatus());
     document.getElementById('managerScoringToggle').addEventListener('change', (e) => this.toggleManagerScoring(e.target.checked));
 
+    // Database management
+    document.getElementById('exportDbBtn').addEventListener('click', () => this.exportDatabase());
+    document.getElementById('importDbBtn').addEventListener('click', () => document.getElementById('importDbFile').click());
+    document.getElementById('importDbFile').addEventListener('change', (e) => this.importDatabase(e));
+
     // Load settings when showing sync section
     this.loadSettings();
 
@@ -169,7 +174,8 @@ const AdminApp = {
       groups: '小组管理',
       draft: '选秀顺序',
       rosters: '经理阵容',
-      sync: '数据同步'
+      sync: '数据同步',
+      database: '数据库管理'
     };
     document.getElementById('sectionTitle').textContent = titles[section] || section;
 
@@ -1035,6 +1041,103 @@ const AdminApp = {
 
   log(message, type = 'info') {
     const container = document.getElementById('logContent');
+    const time = new Date().toLocaleTimeString();
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type}`;
+    entry.textContent = `[${time}] ${message}`;
+    container.insertBefore(entry, container.firstChild);
+  },
+
+  // ==================== Database Management ====================
+
+  async exportDatabase() {
+    this.dbLog('开始导出数据库...', 'info');
+    try {
+      const response = await fetch(`${CONFIG.API_BASE}/admin/db/export`, {
+        method: 'GET',
+        headers: {
+          'X-User-Id': this.currentUser?.id || ''
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: '导出失败' }));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `nba58_backup_${new Date().toISOString().split('T')[0]}.db`;
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match) filename = match[1];
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      this.dbLog(`数据库已导出: ${filename}`, 'success');
+      this.toast('数据库导出成功', 'success');
+    } catch (error) {
+      this.dbLog(`导出失败: ${error.message}`, 'error');
+      this.toast('导出失败: ' + error.message, 'error');
+    }
+  },
+
+  async importDatabase(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.db')) {
+      this.toast('请选择 .db 文件', 'error');
+      event.target.value = '';
+      return;
+    }
+
+    this.showConfirm(
+      `确定要导入数据库文件 "${file.name}" 吗？\n\n此操作将替换当前数据库，导入后建议重启服务。`,
+      async () => {
+        this.dbLog(`开始导入数据库: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)...`, 'info');
+        try {
+          const formData = new FormData();
+          formData.append('dbfile', file);
+
+          const response = await fetch(`${CONFIG.API_BASE}/admin/db/import`, {
+            method: 'POST',
+            headers: {
+              'X-User-Id': this.currentUser?.id || ''
+            },
+            body: formData
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: '导入失败' }));
+            throw new Error(errorData.error || `HTTP ${response.status}`);
+          }
+
+          const result = await response.json();
+          this.dbLog(`数据库导入成功: ${result.message || '完成'}`, 'success');
+          this.toast('数据库导入成功', 'success');
+        } catch (error) {
+          this.dbLog(`导入失败: ${error.message}`, 'error');
+          this.toast('导入失败: ' + error.message, 'error');
+        } finally {
+          // Reset file input
+          event.target.value = '';
+        }
+      }
+    );
+  },
+
+  dbLog(message, type = 'info') {
+    const container = document.getElementById('dbLogContent');
+    if (!container) return;
     const time = new Date().toLocaleTimeString();
     const entry = document.createElement('div');
     entry.className = `log-entry ${type}`;

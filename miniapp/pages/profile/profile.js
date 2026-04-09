@@ -40,7 +40,7 @@ Page({
     Promise.resolve(app.ensureLogin())
       .then((user) => {
         const displayScore = user && user.totalScore != null ? formatScore(user.totalScore) : '0.00';
-        const displayBonus = user && user.bonus != null ? formatScore(user.bonus) : '0.00';
+        const displayBonus = user && (user.totalBonus ?? user.bonus) != null ? formatScore(user.totalBonus ?? user.bonus) : '0.00';
         this.setData({ user: user || null, frozen: [], userRank: '--', displayScore, displayBonus });
         if (user) {
           this.loadFrozen();

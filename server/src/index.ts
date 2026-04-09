@@ -9,6 +9,7 @@ import selectionsRouter from './routes/selections';
 import leaderboardRouter from './routes/leaderboard';
 import adminRouter from './routes/admin';
 import managerRouter from './routes/manager';
+import playoffRouter from './routes/playoff';
 import { bootstrapSchedulers } from './tasks/scheduler';
 import { purgeExpiredFrozen } from './services/userService';
 
@@ -28,6 +29,7 @@ app.use('/api/selections', selectionsRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/manager', managerRouter);
+app.use('/api/playoff', playoffRouter);
 
 // Serve uploaded files (avatars, etc.)
 app.use('/uploads', express.static(path.resolve(paths.data, 'uploads')));

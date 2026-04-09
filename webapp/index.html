@@ -156,6 +156,18 @@
         </div>
       </div>
 
+      <!-- 季后赛模式 -->
+      <div class="mode-item manager-mode-card" data-mode="playoff">
+        <div class="mode-icon">🏆</div>
+        <div class="mode-info">
+          <div class="mode-name">季后赛</div>
+          <div class="mode-desc">
+            <span>附加赛·淘汰赛·总决赛</span>
+            <span class="mode-desc-selection">进入模式</span>
+          </div>
+        </div>
+      </div>
+
       <div class="lock-tip" id="lockTip" style="display: none;">
         今日第一场比赛已锁定，如需修改请等待下一比赛日
       </div>
@@ -299,6 +311,27 @@
           <div class="loading-container">
             <div class="spinner"></div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Playoff Page -->
+    <div class="page-container playoff-page" id="playoffPage" style="display: none;">
+      <header class="page-header">
+        <button class="back-btn" id="playoffBackBtn">←</button>
+        <h1>季后赛</h1>
+      </header>
+
+      <div class="playoff-tabs" id="playoffTabs">
+        <div class="playoff-tab active" data-tab="bracket">对阵</div>
+        <div class="playoff-tab" data-tab="matchup">详情</div>
+        <div class="playoff-tab" data-tab="select">选人</div>
+        <div class="playoff-tab" data-tab="frozen">冷冻</div>
+      </div>
+
+      <div class="playoff-content" id="playoffContent">
+        <div class="loading-container">
+          <div class="spinner"></div>
         </div>
       </div>
     </div>

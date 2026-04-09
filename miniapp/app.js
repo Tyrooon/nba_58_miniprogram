@@ -64,6 +64,7 @@ App({
           avatarUrl: res.avatarUrl,
           username: res.username,
           totalScore: res.totalScore,
+          totalBonus: res.totalBonus,
         };
         this.globalData.user = validUser;
         wx.setStorageSync('user', validUser);

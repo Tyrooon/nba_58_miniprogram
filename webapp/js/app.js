@@ -144,7 +144,12 @@ const App = {
       managerTitle: document.getElementById('managerTitle'),
       managerBody: document.getElementById('managerBody'),
       managerConfirmBtn: document.getElementById('managerConfirmBtn'),
-      managerCancelBtn: document.getElementById('managerCancelBtn')
+      managerCancelBtn: document.getElementById('managerCancelBtn'),
+
+      // Playoff
+      playoffPage: document.getElementById('playoffPage'),
+      playoffContent: document.getElementById('playoffContent'),
+      playoffBackBtn: document.getElementById('playoffBackBtn')
     };
   },
 
@@ -195,6 +200,13 @@ const App = {
     this.elements.managerClose.addEventListener('click', () => this.hideManagerModal());
     this.elements.managerConfirmBtn.addEventListener('click', () => this.handleManagerConfirm());
     this.elements.managerCancelBtn.addEventListener('click', () => this.hideManagerModal());
+
+    // Playoff mode
+    this.elements.playoffBackBtn.addEventListener('click', () => this.showPage('schedule'));
+    document.getElementById('playoffTabs').addEventListener('click', (e) => {
+      const tab = e.target.closest('.playoff-tab');
+      if (tab) this.handlePlayoffTab(tab.dataset.tab);
+    });
 
     // Manager list events (delegation)
     document.addEventListener('click', (e) => {
@@ -1002,6 +1014,14 @@ const App = {
       return;
     }
 
+    // 季后赛模式特殊处理
+    if (modeKey === 'playoff') {
+      this.state.currentMode = 'playoff';
+      this.hideModePanel();
+      this.showPlayoffPage();
+      return;
+    }
+
     const modeId = CONFIG.MODE_MAP[modeKey];
     if (!modeId) return;
 
@@ -1671,6 +1691,359 @@ const App = {
     } catch (error) {
       console.error('Reject manager error:', error);
       this.showToast('操作失败');
+    }
+  },
+
+  // Playoff Mode
+  _playoffTab: 'bracket',
+  _playoffStatus: null,
+  _currentMatchup: null,
+  _selectedGameDate: '',
+  _selectedPlayerId: null,
+  _availablePlayers: [],
+
+  async showPlayoffPage() {
+    this.elements.timelineScroll.style.display = 'none';
+    document.querySelector('.header').style.display = 'none';
+    this.elements.profilePage.style.display = 'none';
+    this.elements.historyPage.style.display = 'none';
+    this.elements.leaderboardPage.style.display = 'none';
+    this.elements.scoreboardPage.style.display = 'none';
+    this.elements.managerPage.style.display = 'none';
+
+    this.elements.playoffPage.style.display = 'block';
+    this.state.currentTab = 'playoff';
+
+    await this.loadPlayoffStatus();
+  },
+
+  handlePlayoffTab(tab) {
+    this._playoffTab = tab;
+    document.querySelectorAll('.playoff-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.playoff-tab[data-tab="${tab}"]`).classList.add('active');
+    this.renderPlayoffContent();
+  },
+
+  async loadPlayoffStatus() {
+    const content = this.elements.playoffContent;
+    content.innerHTML = '<div class="loading-container"><div class="spinner"></div></div>';
+
+    try {
+      const userId = this.state.user?.id;
+      const res = await API.call(`/playoff/status?userId=${userId}`);
+      this._playoffStatus = res?.data || null;
+      this.renderPlayoffContent();
+    } catch (error) {
+      console.error('Load playoff status error:', error);
+      content.innerHTML = '<div class="no-players">加载失败，季后赛可能尚未开始</div>';
+    }
+  },
+
+  renderPlayoffContent() {
+    const content = this.elements.playoffContent;
+    const tab = this._playoffTab;
+
+    if (tab === 'bracket') {
+      this.renderPlayoffBracket(content);
+    } else if (tab === 'matchup') {
+      this.renderPlayoffMatchup(content);
+    } else if (tab === 'select') {
+      this.renderPlayoffSelect(content);
+    } else if (tab === 'frozen') {
+      this.loadPlayoffFrozen(content);
+    }
+  },
+
+  renderPlayoffBracket(container) {
+    const status = this._playoffStatus;
+    if (!status || (!status.playIn && (!status.rounds || status.rounds.length === 0))) {
+      container.innerHTML = '<div class="no-players">季后赛尚未开始</div>';
+      return;
+    }
+
+    let html = '';
+
+    // Play-in section
+    if (status.playIn && status.playIn.matchups) {
+      html += '<div class="playoff-section"><h3>附加赛</h3>';
+      html += status.playIn.matchups.map(m => this.renderMatchupCard(m)).join('');
+      html += '</div>';
+    }
+
+    // Rounds
+    if (status.rounds) {
+      status.rounds.forEach(round => {
+        const roundName = {
+          'round1': '季后赛第一轮',
+          'round2': '半决赛',
+          'conference_finals': '总决赛'
+        }[round.round_type] || round.round_type;
+
+        if (round.matchups && round.matchups.length > 0) {
+          html += `<div class="playoff-section"><h3>${roundName}</h3>`;
+          html += round.matchups.map(m => this.renderMatchupCard(m)).join('');
+          html += '</div>';
+        }
+      });
+    }
+
+    container.innerHTML = html;
+
+    // Bind matchup clicks
+    container.querySelectorAll('.playoff-matchup-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const matchupId = parseInt(card.dataset.matchupId);
+        this.viewPlayoffMatchup(matchupId);
+      });
+    });
+  },
+
+  renderMatchupCard(m) {
+    const statusText = { active: '进行中', completed: '已结束', upcoming: '待开始' }[m.status] || m.status;
+    return `
+      <div class="playoff-matchup-card" data-matchup-id="${m.id}">
+        <div class="matchup-row">
+          <div class="matchup-player">
+            <span class="seed">#${m.high_seed_rank}</span>
+            <span class="name">${m.high_seed_nickname || '玩家' + m.high_seed_rank}</span>
+            <span class="pts">${m.high_seed_points || 0}</span>
+          </div>
+          <span class="matchup-vs">VS</span>
+          <div class="matchup-player">
+            <span class="seed">#${m.low_seed_rank}</span>
+            <span class="name">${m.low_seed_nickname || '玩家' + m.low_seed_rank}</span>
+            <span class="pts">${m.low_seed_points || 0}</span>
+          </div>
+        </div>
+        <div class="matchup-status-badge ${m.status}">${statusText}</div>
+      </div>
+    `;
+  },
+
+  async viewPlayoffMatchup(matchupId) {
+    const content = this.elements.playoffContent;
+    content.innerHTML = '<div class="loading-container"><div class="spinner"></div></div>';
+
+    try {
+      const userId = this.state.user?.id;
+      const res = await API.call(`/playoff/matchup/${matchupId}?userId=${userId}`);
+      this._currentMatchup = res?.data || null;
+      this._playoffTab = 'matchup';
+      document.querySelectorAll('.playoff-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector('.playoff-tab[data-tab="matchup"]').classList.add('active');
+      this.renderPlayoffMatchup(content);
+    } catch (error) {
+      console.error('Load matchup error:', error);
+      content.innerHTML = '<div class="no-players">加载失败</div>';
+    }
+  },
+
+  renderPlayoffMatchup(container) {
+    const m = this._currentMatchup;
+    if (!m) {
+      container.innerHTML = '<div class="no-players">请先选择一组对决</div>';
+      return;
+    }
+
+    const gameDates = m.gameDates || [];
+    const selectedDate = this._selectedGameDate || (gameDates[0] || '');
+
+    let datesHtml = gameDates.map(d => `
+      <span class="date-tag ${d === selectedDate ? 'active' : ''}" data-date="${d}">${d}</span>
+    `).join('');
+
+    let detailHtml = '';
+    if (selectedDate) {
+      const highSel = m.highSeedSelection || {};
+      const lowSel = m.lowSeedSelection || {};
+      detailHtml = `
+        <div class="matchup-detail-row">
+          <div class="detail-player-card">
+            <div class="detail-label">#${m.high_seed_rank} 高种子</div>
+            <div class="detail-name">${highSel.player_name || '未选择'}</div>
+            <div class="detail-score">${highSel.plus58_score != null ? highSel.plus58_score.toFixed(1) : '-'}</div>
+          </div>
+          <div class="detail-player-card">
+            <div class="detail-label">#${m.low_seed_rank} 低种子</div>
+            <div class="detail-name">${lowSel.player_name || '未选择'}</div>
+            <div class="detail-score">${lowSel.plus58_score != null ? lowSel.plus58_score.toFixed(1) : '-'}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    const scores = m.scores || {};
+    container.innerHTML = `
+      <div class="playoff-section">
+        <h3>#${m.high_seed_rank} vs #${m.low_seed_rank}</h3>
+        <div class="date-tags">${datesHtml}</div>
+        ${detailHtml}
+        ${m.status === 'active' && selectedDate ? `
+          <div class="playoff-actions">
+            <button class="primary-btn" id="goToSelectBtn">选择球员</button>
+            <button class="secondary-btn" id="cancelSelectBtn">取消选人</button>
+          </div>
+        ` : ''}
+        <div class="total-score-bar">
+          <span>总积分</span>
+          <span class="score-big">${scores.highSeedTotal || 0} - ${scores.lowSeedTotal || 0}</span>
+        </div>
+      </div>
+    `;
+
+    // Bind events
+    container.querySelectorAll('.date-tag').forEach(tag => {
+      tag.addEventListener('click', () => {
+        this._selectedGameDate = tag.dataset.date;
+        this.renderPlayoffMatchup(container);
+      });
+    });
+
+    const goBtn = document.getElementById('goToSelectBtn');
+    if (goBtn) goBtn.addEventListener('click', () => this.goToPlayoffSelect());
+
+    const cancelBtn = document.getElementById('cancelSelectBtn');
+    if (cancelBtn) cancelBtn.addEventListener('click', () => this.cancelPlayoffSelection());
+  },
+
+  async goToPlayoffSelect() {
+    if (!this._currentMatchup || !this._selectedGameDate) {
+      this.showToast('请先选择比赛日');
+      return;
+    }
+
+    const content = this.elements.playoffContent;
+    content.innerHTML = '<div class="loading-container"><div class="spinner"></div></div>';
+
+    try {
+      const userId = this.state.user?.id;
+      const res = await API.call(`/playoff/available-players?matchupId=${this._currentMatchup.id}&userId=${userId}&gameDate=${this._selectedGameDate}`);
+      this._availablePlayers = res?.data || [];
+      this._selectedPlayerId = null;
+      this._playoffTab = 'select';
+      document.querySelectorAll('.playoff-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector('.playoff-tab[data-tab="select"]').classList.add('active');
+      this.renderPlayoffSelect(content);
+    } catch (error) {
+      console.error('Load available players error:', error);
+      this.showToast('加载球员失败');
+    }
+  },
+
+  renderPlayoffSelect(container) {
+    const players = this._availablePlayers;
+    if (!players.length) {
+      container.innerHTML = '<div class="no-players">没有可选球员</div>';
+      return;
+    }
+
+    const html = `
+      <div class="playoff-section">
+        <h3>选择球员 - ${this._selectedGameDate}</h3>
+        <div class="playoff-player-list">
+          ${players.map(p => `
+            <div class="playoff-player-item ${this._selectedPlayerId === p.player_id ? 'selected' : ''}" data-player-id="${p.player_id}">
+              <div class="player-info-text">
+                <div class="player-name-text">${p.player_name}</div>
+                <div class="player-team-text">${p.team_name || ''}</div>
+              </div>
+              <div class="player-avg">场均 ${p.season_avg || 0}</div>
+              ${this._selectedPlayerId === p.player_id ? '<div class="check-icon">✓</div>' : ''}
+            </div>
+          `).join('')}
+        </div>
+        ${this._selectedPlayerId ? '<button class="primary-btn confirm-playoff-btn">确认选择</button>' : ''}
+      </div>
+    `;
+
+    container.innerHTML = html;
+
+    container.querySelectorAll('.playoff-player-item').forEach(item => {
+      item.addEventListener('click', () => {
+        this._selectedPlayerId = item.dataset.playerId;
+        this.renderPlayoffSelect(container);
+      });
+    });
+
+    const confirmBtn = container.querySelector('.confirm-playoff-btn');
+    if (confirmBtn) confirmBtn.addEventListener('click', () => this.confirmPlayoffSelection());
+  },
+
+  async confirmPlayoffSelection() {
+    const userId = this.state.user?.id;
+    try {
+      await API.call('/playoff/select', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          matchupId: this._currentMatchup.id,
+          userId,
+          playerId: this._selectedPlayerId,
+          gameDate: this._selectedGameDate
+        })
+      });
+      this.showToast('选人成功');
+      this.viewPlayoffMatchup(this._currentMatchup.id);
+    } catch (error) {
+      console.error('Playoff select error:', error);
+      this.showToast(error.message || '选人失败');
+    }
+  },
+
+  async cancelPlayoffSelection() {
+    if (!confirm('确定要取消今天的选人吗？')) return;
+    const userId = this.state.user?.id;
+    try {
+      await API.call('/playoff/select', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          matchupId: this._currentMatchup.id,
+          userId,
+          gameDate: this._selectedGameDate
+        })
+      });
+      this.showToast('已取消');
+      this.viewPlayoffMatchup(this._currentMatchup.id);
+    } catch (error) {
+      console.error('Cancel playoff selection error:', error);
+      this.showToast('取消失败');
+    }
+  },
+
+  async loadPlayoffFrozen(container) {
+    const userId = this.state.user?.id;
+    if (!userId) {
+      container.innerHTML = '<div class="no-players">请先登录</div>';
+      return;
+    }
+
+    try {
+      const res = await API.call(`/playoff/frozen?userId=${userId}`);
+      const frozen = res?.data || [];
+
+      if (!frozen.length) {
+        container.innerHTML = '<div class="no-players">暂无冷冻球员</div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="playoff-section">
+          <h3>当前轮次冷冻名单</h3>
+          <div class="frozen-list-content">
+            ${frozen.map(f => `
+              <div class="frozen-item-row">
+                <span class="frozen-name">${f.player_name}</span>
+                <span class="frozen-date">${f.frozen_date}</span>
+                <span class="frozen-tag">冷冻</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    } catch (error) {
+      console.error('Load playoff frozen error:', error);
+      container.innerHTML = '<div class="no-players">加载失败</div>';
     }
   },
 

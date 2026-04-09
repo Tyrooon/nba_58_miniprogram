@@ -5,7 +5,8 @@
     "pages/leaderboard/leaderboard",
     "pages/profile/profile",
     "pages/manager/manager",
-    "pages/scoreboard/scoreboard"
+    "pages/scoreboard/scoreboard",
+    "pages/playoff/playoff"
   ],
   "window": {
     "navigationBarTitleText": "NBA 58",

@@ -1,10 +1,13 @@
 import { Router } from 'express';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
 import { syncDailyData, syncSeasonSchedule } from '../services/gameService';
 import { computeDayScores } from '../services/scoringService';
 import db from '../db';
 import { toDateKey } from '../utils/date';
 import { requireAdmin } from '../middleware/admin';
-import { config } from '../config';
+import { config, paths } from '../config';
 import adminService from '../services/adminService';
 
 const router = Router();
@@ -498,6 +501,91 @@ router.put('/settings/:key', requireAdmin, async (req, res, next) => {
   } catch (error: any) {
     next(error);
   }
+});
+
+// ==================== Database Export / Import ====================
+
+const dbUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      const tmpDir = path.resolve(paths.data, 'tmp');
+      fs.mkdirSync(tmpDir, { recursive: true });
+      cb(null, tmpDir);
+    },
+    filename: (_req, file, cb) => {
+      cb(null, `import_${Date.now()}.db`);
+    },
+  }),
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB max
+  fileFilter: (_req, file, cb) => {
+    if (file.originalname.endsWith('.db') || file.mimetype === 'application/x-sqlite3' || file.mimetype === 'application/octet-stream') {
+      cb(null, true);
+    } else {
+      cb(new Error('仅支持 .db 文件'));
+    }
+  },
+});
+
+// Export database file
+router.get('/db/export', requireAdmin, (req, res, next) => {
+  try {
+    if (!fs.existsSync(paths.dbFile)) {
+      return res.status(404).json({ success: false, error: '数据库文件不存在' });
+    }
+    res.download(paths.dbFile, `nba58_backup_${new Date().toISOString().split('T')[0]}.db`);
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+// Import database file
+router.post('/db/import', requireAdmin, (req, res, next) => {
+  dbUpload.single('dbfile')(req, res, async (err: any) => {
+    try {
+      if (err && err.name === 'MulterError') {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ success: false, error: '文件大小不能超过 100MB' });
+        }
+        return res.status(400).json({ success: false, error: err.message });
+      }
+      if (err) {
+        return res.status(400).json({ success: false, error: err.message });
+      }
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: '请上传数据库文件' });
+      }
+
+      const uploadedFile = req.file.path;
+      try {
+        // Verify the uploaded file is a valid SQLite database by checking the header
+        const headerBuf = Buffer.alloc(16);
+        const fd = fs.openSync(uploadedFile, 'r');
+        fs.readSync(fd, headerBuf, 0, 16, 0);
+        fs.closeSync(fd);
+        const sqliteHeader = 'SQLite format 3\u0000';
+        if (headerBuf.toString('utf8', 0, 16) !== sqliteHeader) {
+          fs.unlinkSync(uploadedFile);
+          return res.status(400).json({ success: false, error: '上传的文件不是有效的SQLite数据库' });
+        }
+
+        // Copy the uploaded file over the current database
+        fs.copyFileSync(uploadedFile, paths.dbFile);
+
+        // Clean up temp file
+        fs.unlinkSync(uploadedFile);
+
+        res.json({ success: true, message: '数据库已导入，建议重启服务以确保生效' });
+      } catch (dbError: any) {
+        // Clean up temp file on error
+        if (fs.existsSync(uploadedFile)) {
+          fs.unlinkSync(uploadedFile);
+        }
+        return res.status(400).json({ success: false, error: `导入失败: ${dbError.message}` });
+      }
+    } catch (outerError: any) {
+      next(outerError);
+    }
+  });
 });
 
 export default router;

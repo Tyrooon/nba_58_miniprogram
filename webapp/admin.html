@@ -65,6 +65,10 @@
             <span class="menu-icon">🔄</span>
             <span class="menu-text">数据同步</span>
           </div>
+          <div class="menu-item" data-section="database">
+            <span class="menu-icon">💾</span>
+            <span class="menu-text">数据库管理</span>
+          </div>
         </div>
         <div class="sidebar-footer">
           <button class="logout-btn" id="adminLogoutBtn">退出登录</button>
@@ -217,19 +221,27 @@
             <div class="log-content" id="logContent"></div>
           </div>
         </section>
-                    <th>最后同步</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody id="dataStatusTableBody">
-                </tbody>
-              </table>
+
+        <!-- Database Section -->
+        <section class="admin-section" id="databaseSection" style="display: none;">
+          <div class="sync-cards">
+            <div class="sync-card">
+              <div class="sync-icon">📤</div>
+              <h3>导出数据库</h3>
+              <p>下载当前 SQLite 数据库文件的备份副本</p>
+              <button class="primary-btn" id="exportDbBtn">导出数据库</button>
+            </div>
+            <div class="sync-card">
+              <div class="sync-icon">📥</div>
+              <h3>导入数据库</h3>
+              <p>上传 .db 文件替换当前数据库（导入后建议重启服务）</p>
+              <input type="file" id="importDbFile" accept=".db" style="display: none;">
+              <button class="primary-btn" id="importDbBtn">选择文件并导入</button>
             </div>
           </div>
-
-          <div class="sync-log" id="syncLog">
+          <div class="sync-log" id="dbLog">
             <h4>操作日志</h4>
-            <div class="log-content" id="logContent"></div>
+            <div class="log-content" id="dbLogContent"></div>
           </div>
         </section>
       </main>

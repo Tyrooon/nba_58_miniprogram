@@ -435,6 +435,82 @@ const bootstrap = async () => {
       console.log('Added bonus column to manager_weekly_scores table');
     }
 
+    // Migration for manager_trades: add created_at and resolved_at columns
+    const tradeColumns = await db.all(`PRAGMA table_info(manager_trades)`);
+    const tradeColNames = tradeColumns?.map((col: any) => col.name) || [];
+    if (!tradeColNames.includes('created_at')) {
+      await db.exec(`ALTER TABLE manager_trades ADD COLUMN created_at TEXT DEFAULT (datetime('now'))`);
+      console.log('Added created_at column to manager_trades table');
+    }
+    if (!tradeColNames.includes('resolved_at')) {
+      await db.exec(`ALTER TABLE manager_trades ADD COLUMN resolved_at TEXT`);
+      console.log('Added resolved_at column to manager_trades table');
+    }
+
+    // Playoff Mode Tables
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS playoff_rounds (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        season INTEGER NOT NULL DEFAULT 2025,
+        round_type TEXT NOT NULL,
+        status TEXT DEFAULT 'upcoming',
+        start_date TEXT,
+        end_date TEXT,
+        config TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS playoff_matchups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        round_id INTEGER NOT NULL,
+        round_type TEXT NOT NULL,
+        high_seed_user_id TEXT NOT NULL,
+        low_seed_user_id TEXT NOT NULL,
+        high_seed_rank INTEGER NOT NULL,
+        low_seed_rank INTEGER NOT NULL,
+        winner_id TEXT,
+        status TEXT DEFAULT 'upcoming',
+        priority_user_id TEXT,
+        FOREIGN KEY(round_id) REFERENCES playoff_rounds(id),
+        FOREIGN KEY(high_seed_user_id) REFERENCES users(id),
+        FOREIGN KEY(low_seed_user_id) REFERENCES users(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS playoff_selections (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        matchup_id INTEGER NOT NULL,
+        user_id TEXT NOT NULL,
+        player_id TEXT NOT NULL,
+        player_name TEXT,
+        game_date TEXT NOT NULL,
+        season_avg REAL DEFAULT 0,
+        actual_points REAL DEFAULT 0,
+        plus58_score REAL DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(matchup_id, user_id, game_date),
+        FOREIGN KEY(matchup_id) REFERENCES playoff_matchups(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS playoff_frozen_players (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        player_id TEXT NOT NULL,
+        player_name TEXT,
+        round_id INTEGER NOT NULL,
+        frozen_date TEXT NOT NULL,
+        FOREIGN KEY(round_id) REFERENCES playoff_rounds(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS playoff_scores (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        matchup_id INTEGER NOT NULL,
+        game_date TEXT NOT NULL,
+        high_seed_score REAL DEFAULT 0,
+        low_seed_score REAL DEFAULT 0,
+        winner_user_id TEXT,
+        FOREIGN KEY(matchup_id) REFERENCES playoff_matchups(id)
+      );
+    `);
+
   } catch (err) {
     console.error('Database bootstrap error:', err);
   }
