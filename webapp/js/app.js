@@ -25,10 +25,13 @@ const App = {
 
   // Initialize
   async init() {
+    console.log('[App] init started');
     this.cacheElements();
     this.bindEvents();
-    await this.ensureLogin();
+    const user = await this.ensureLogin();
+    console.log('[App] ensureLogin resolved, user:', !!user);
     await this.initTimeline(this.state.selectedDate);
+    console.log('[App] initTimeline done, gameList:', this.state.gameList.length);
   },
 
   // Cache DOM elements
@@ -282,6 +285,7 @@ const App = {
 
   async ensureLogin() {
     let user = Utils.storage.get('user');
+    console.log('[ensureLogin] cached user:', !!user);
 
     if (!user) {
       this.showAuthModal();
@@ -477,7 +481,9 @@ const App = {
   },
 
   async fetchGameRange(start, end, type = 'initial') {
+    console.log(`[fetchGameRange] start=${start}, end=${end}, type=${type}`);
     const res = await API.getGamesRange(start, end);
+    console.log(`[fetchGameRange] response:`, res ? `array[${res.length}]` : 'null/undefined');
 
     if (!res) return;
 
@@ -506,6 +512,7 @@ const App = {
   },
 
   renderTimeline() {
+    console.log(`[renderTimeline] gameList: ${this.state.gameList.length} days`);
     let html = '';
 
     this.state.gameList.forEach(dayGroup => {
