@@ -72,7 +72,7 @@ const API = {
   },
 
   async getProfile(userId) {
-    return this.request(`/users/${userId}/profile`);
+    return this.request(`/users/${userId}`);
   },
 
   async updateProfile(userId, data) {
