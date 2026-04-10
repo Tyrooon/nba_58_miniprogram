@@ -12,6 +12,8 @@ import managerRouter from './routes/manager';
 import playoffRouter from './routes/playoff';
 import { bootstrapSchedulers } from './tasks/scheduler';
 import { purgeExpiredFrozen } from './services/userService';
+import { syncDailyData } from './services/gameService';
+import db from './db';
 
 const app = express();
 
@@ -52,6 +54,34 @@ const start = async () => {
   try {
     await purgeExpiredFrozen();
     bootstrapSchedulers();
+
+    // Auto-sync on startup: check if today's game data exists, sync if missing
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const row = await db.get(
+        'SELECT COUNT(*) as cnt FROM games WHERE game_date = ?',
+        [today]
+      ) as any;
+      if (!row || row.cnt === 0) {
+        console.log(`[startup] No games found for ${today}, triggering auto-sync...`);
+        // Sync yesterday, today, and tomorrow
+        const d = (offset: number) => {
+          const dt = new Date();
+          dt.setDate(dt.getDate() + offset);
+          return dt.toISOString().split('T')[0];
+        };
+        for (const date of [d(-1), d(0), d(1)]) {
+          console.log(`[startup] Syncing ${date}...`);
+          await syncDailyData(date);
+        }
+        console.log('[startup] Auto-sync complete');
+      } else {
+        console.log(`[startup] Found ${row.cnt} games for ${today}, skip auto-sync`);
+      }
+    } catch (syncErr) {
+      console.error('[startup] Auto-sync failed (non-fatal):', syncErr);
+    }
+
     app.listen(config.port, () => {
       console.log('NBA球星58竞猜API running on http://localhost:' + config.port);
     });
