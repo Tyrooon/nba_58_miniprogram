@@ -1191,7 +1191,7 @@ const App = {
       this.elements.userAvatar.src = this._resolveAvatarUrl(this.state.user.avatarUrl);
       this.elements.userTotalScore.textContent = Utils.formatScore(this.state.user.totalScore || 0);
       if (this.elements.userTotalBonus) {
-        this.elements.userTotalBonus.textContent = Utils.formatScore(this.state.user.bonus || 0);
+        this.elements.userTotalBonus.textContent = Utils.formatScore(this.state.user.totalBonus ?? this.state.user.bonus ?? 0);
       }
       if (this.elements.userGroupName) {
         this.elements.userGroupName.textContent = this.state.user.groupName || '默认小组';
