@@ -2146,7 +2146,7 @@ const App = {
           const isCurrentUser = user.id === this.state.user.id;
           const rankClass = rank <= 3 ? `top-${rank}` : 'normal';
           const score = user.totalScore || 0;
-          const bonus = user.bonus ?? user.total_bonus ?? user.bonus_score ?? user.totalScore ?? 0;
+          const bonus = user.totalBonus ?? user.bonus ?? user.total_bonus ?? user.bonus_score ?? 0;
 
           html += `
             <div class="leaderboard-item ${isCurrentUser ? 'current-user' : ''}" data-user-id="${user.id}" data-user-name="${user.nickname || '球迷'}">

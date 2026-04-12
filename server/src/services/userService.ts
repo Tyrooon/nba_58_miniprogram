@@ -354,7 +354,7 @@ export const getLeaderboard = async (limit: number = 100) => {
  */
 export const getAllUsers = async (limit: number = 100) => {
   const users = await db.prepare(`
-    SELECT id, nickname, avatar_url, total_score
+    SELECT id, nickname, avatar_url, total_score, total_bonus
     FROM users
     ORDER BY total_score DESC, created_at ASC
     LIMIT ?
@@ -366,6 +366,7 @@ export const getAllUsers = async (limit: number = 100) => {
     nickname: user.nickname || `球迷${user.id}`,
     avatarUrl: user.avatar_url,
     totalScore: user.total_score || 0,
+    totalBonus: user.total_bonus || 0,
   }));
 };
 
