@@ -23,6 +23,9 @@ const AdminApp = {
     document.getElementById('adminPassword').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') this.login();
     });
+    document.getElementById('adminToken').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') this.login();
+    });
 
     // Logout
     document.getElementById('adminLogoutBtn').addEventListener('click', () => this.logout());
@@ -115,6 +118,7 @@ const AdminApp = {
   async login() {
     const username = document.getElementById('adminUsername').value.trim();
     const password = document.getElementById('adminPassword').value;
+    const adminToken = document.getElementById('adminToken').value.trim();
 
     if (!username || !password) {
       this.showError('请输入用户名和密码');
@@ -134,6 +138,11 @@ const AdminApp = {
 
       this.currentUser = user;
       Utils.storage.set('adminUser', user);
+      if (adminToken) {
+        Utils.storage.set('adminToken', adminToken);
+      } else {
+        Utils.storage.remove('adminToken');
+      }
       this.showPanel();
       this.toast('登录成功', 'success');
     } catch (error) {
@@ -144,6 +153,7 @@ const AdminApp = {
   logout() {
     this.currentUser = null;
     Utils.storage.remove('adminUser');
+    Utils.storage.remove('adminToken');
     document.getElementById('adminLogin').style.display = 'flex';
     document.getElementById('adminPanel').style.display = 'none';
     this.toast('已退出登录');
@@ -1058,9 +1068,7 @@ const AdminApp = {
     try {
       const response = await fetch(`${CONFIG.API_BASE}/admin/db/export`, {
         method: 'GET',
-        headers: {
-          'X-User-Id': this.currentUser?.id || ''
-        }
+        headers: this.getAdminHeaders({ includeContentType: false })
       });
 
       if (!response.ok) {
@@ -1113,9 +1121,7 @@ const AdminApp = {
 
           const response = await fetch(`${CONFIG.API_BASE}/admin/db/import`, {
             method: 'POST',
-            headers: {
-              'X-User-Id': this.currentUser?.id || ''
-            },
+            headers: this.getAdminHeaders({ includeContentType: false }),
             body: formData
           });
 
@@ -1150,15 +1156,29 @@ const AdminApp = {
 
   // ==================== Utilities ====================
 
+  getAdminHeaders({ includeContentType = true } = {}) {
+    const headers = {
+      'X-User-Id': this.currentUser?.id || ''
+    };
+
+    if (includeContentType) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const token = Utils.storage.get('adminToken');
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    return headers;
+  },
+
   async apiRequest(url, options = {}) {
     const { method = 'GET', data = null } = options;
 
     const config = {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-User-Id': this.currentUser?.id || ''
-      }
+      headers: this.getAdminHeaders()
     };
 
     if (data && method !== 'GET') {

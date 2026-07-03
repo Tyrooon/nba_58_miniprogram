@@ -1,5 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import db from '../db';
+import { config } from '../config';
+
+const getAdminToken = (req: Request) => {
+  const headerToken = req.headers['x-admin-token'];
+  if (typeof headerToken === 'string') return headerToken;
+
+  const authHeader = req.headers.authorization;
+  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+    return authHeader.slice('Bearer '.length).trim();
+  }
+
+  return undefined;
+};
 
 /**
  * 管理员权限检查中间件
@@ -11,6 +24,19 @@ import db from '../db';
  * 注意：不使用 body 中的 userId，因为那通常是目标用户
  */
 export const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  if (config.adminApiToken) {
+    const providedToken = getAdminToken(req);
+    if (providedToken === config.adminApiToken) {
+      (req as any).user = { id: 'admin-token', is_admin: 1, authType: 'admin-token' };
+      return next();
+    }
+    return res.status(401).json({ success: false, error: 'Unauthorized: valid admin token required' });
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(401).json({ success: false, error: 'Unauthorized: ADMIN_API_TOKEN required in production' });
+  }
+
   const adminUserId =
     req.query?.adminUserId ||
     req.headers['x-admin-user-id'] ||

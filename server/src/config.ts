@@ -9,10 +9,9 @@ export const config = {
   port: Number(process.env.PORT ?? 80),
   ballDontLieBase: process.env.BALL_DONT_LIE_BASE ?? 'https://api.balldontlie.io/v1',
   ballDontLieApiKey: process.env.BALL_DONT_LIE_API_KEY ?? '',
-  // FIX: Current date is Nov 2025, so the season is 2025-2026.
-  // In NBA API convention, "2025" usually means 2025-26 season.
   currentSeason: Number(process.env.CURRENT_SEASON ?? 2025),
-  sportsBlazeApiKey: process.env.SPORTSBLAZE_API_KEY ?? 'sbftnbre0i5d48q8yj15jto',
+  sportsBlazeApiKey: process.env.SPORTSBLAZE_API_KEY ?? '',
+  adminApiToken: process.env.ADMIN_API_TOKEN ?? '',
   syncCron: process.env.SYNC_CRON ?? '5 4 * * *',
   scoreCron: process.env.SCORE_CRON ?? '0 14 * * *',
   seasonStatsCron: process.env.SEASON_STATS_CRON ?? '0 * * * *',
@@ -24,9 +23,10 @@ export const config = {
   // 选人模式配置
   // 设置为 false 以关闭对应模式
   modeEnabled: {
-    regular: process.env.MODE_REGULAR !== 'false',      // 常规模式，    plus58: process.env.MODE_PLUS58 !== 'false',        // 正58模式
-    minus58: process.env.MODE_MINUS58 !== 'false',      // 负58模式
-    manager: process.env.MODE_MANAGER !== 'false',      // 经理模式
+    regular: process.env.MODE_REGULAR !== 'false',
+    plus58: process.env.MODE_PLUS58 !== 'false',
+    minus58: process.env.MODE_MINUS58 !== 'false',
+    manager: process.env.MODE_MANAGER !== 'false',
   },
 };
 

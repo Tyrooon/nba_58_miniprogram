@@ -259,6 +259,7 @@ const bootstrap = async () => {
         stats_rebounds INTEGER DEFAULT 0,
         stats_assists INTEGER DEFAULT 0,
         stats_status TEXT DEFAULT 'scheduled',
+        is_played INTEGER DEFAULT 0,
         created_at TEXT DEFAULT (datetime('now')),
         UNIQUE(game_date, player_id)
       );
@@ -386,16 +387,17 @@ const bootstrap = async () => {
       console.log('Added total_score column to users table');
     }
 
-    // Admin account creation
+    // Optional admin bootstrap for fresh deployments. Existing admin accounts are not changed.
     const admin = await db.get(`SELECT username FROM users WHERE username = 'admin'`);
-    if (!admin) {
+    const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD;
+    if (!admin && bootstrapPassword) {
       const bcrypt = await import('bcryptjs');
-      const passwordHash = await bcrypt.default.hash('admin123', 10);
+      const passwordHash = await bcrypt.default.hash(bootstrapPassword, 10);
       await db.run(
         `INSERT INTO users (username, password_hash, nickname, is_admin, openid) VALUES (?, ?, ?, 1, ?)`,
         ['admin', passwordHash, '管理员', 'admin_openid']
       );
-      console.log('Admin account created: admin/admin123');
+      console.log('Admin account created from ADMIN_BOOTSTRAP_PASSWORD');
     }
 
     // Migration for group_id column
@@ -433,6 +435,14 @@ const bootstrap = async () => {
     if (!hasWeeklyBonus) {
       await db.exec(`ALTER TABLE manager_weekly_scores ADD COLUMN bonus REAL DEFAULT 0`);
       console.log('Added bonus column to manager_weekly_scores table');
+    }
+
+    // Migration for is_played column in daily_players table
+    const dailyPlayerColumns = await db.all(`PRAGMA table_info(daily_players)`);
+    const hasIsPlayed = dailyPlayerColumns?.some((col: any) => col.name === 'is_played');
+    if (!hasIsPlayed) {
+      await db.exec(`ALTER TABLE daily_players ADD COLUMN is_played INTEGER DEFAULT 0`);
+      console.log('Added is_played column to daily_players table');
     }
 
     // Migration for manager_trades: add created_at and resolved_at columns

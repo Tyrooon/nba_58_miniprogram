@@ -134,23 +134,33 @@ export const computeDayScores = async (targetDate?: string) => {
     }
   });
 
-  await saveSelectionScores(
-    updates.map((u) => ({
-      id: u.id,
-      actual: u.actual,
-      base: u.base,
-      bonus: u.bonus,
-      total: u.total,
-    }))
-  );
+  await db.exec('BEGIN IMMEDIATE TRANSACTION');
+  try {
+    await saveSelectionScores(
+      updates.map((u) => ({
+        id: u.id,
+        actual: u.actual,
+        base: u.base,
+        bonus: u.bonus,
+        total: u.total,
+      }))
+    );
 
-  const updateUserStmt = db.prepare(
-    `UPDATE users SET total_score = COALESCE(total_score, 0) + ? WHERE id = ?`
-  );
+    const updateUserStmt = db.prepare(
+      `UPDATE users SET total_score = COALESCE(total_score, 0) + ? WHERE id = ?`
+    );
 
-  // Run updates sequentially
-  for (const u of updates) {
-    await updateUserStmt.run([u.total, u.userId]);
+    for (const u of updates) {
+      const result = await updateUserStmt.run([u.total, u.userId]);
+      if (result.changes !== 1) {
+        throw new Error(`计分失败：用户 ${u.userId} 不存在或无法更新总分`);
+      }
+    }
+
+    await db.exec('COMMIT');
+  } catch (error) {
+    await db.exec('ROLLBACK');
+    throw error;
   }
 
   return { date: dateKey, updated: updates.length };
